@@ -22,6 +22,16 @@ struct GenerationView: View {
     @State private var started = false
     @State private var pulse = false
 
+    /// While generating he hypnotizes; once the words are ready he settles into
+    /// a calm meditation; on failure he drifts off to sleep.
+    private var mascotPose: MascotPose {
+        switch store.stage {
+        case .failed:    return .sleep
+        case .recording: return .meditate
+        default:         return .hypnotize
+        }
+    }
+
     var body: some View {
         ZStack {
             AuroraBackground()
@@ -41,18 +51,9 @@ struct GenerationView: View {
                                 value: pulse
                             )
                     }
-                    Circle()
-                        .fill(
-                            RadialGradient(
-                                colors: [.white.opacity(0.9), goal.tint, Theme.violet.opacity(0.9)],
-                                center: .init(x: 0.4, y: 0.35),
-                                startRadius: 2, endRadius: 70
-                            )
-                        )
-                        .frame(width: 96, height: 96)
-                        .shadow(color: goal.tint.opacity(0.6), radius: 24)
-                        .scaleEffect(pulse ? 1.06 : 0.96)
-                        .animation(.easeInOut(duration: 2).repeatForever(autoreverses: true), value: pulse)
+                    // Professor Jelly swings his pocket watch to guide you down
+                    // while the session is written and narrated.
+                    MascotView(pose: mascotPose, size: 132, glow: true)
                 }
                 .frame(height: 240)
 

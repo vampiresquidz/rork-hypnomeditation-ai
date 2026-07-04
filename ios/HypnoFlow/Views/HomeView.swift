@@ -11,6 +11,7 @@ struct HomeView: View {
     @State private var showCreate = false
     @State private var presetGoal: HypnosisGoal? = nil
     @State private var playingSession: MeditationSession?
+    @State private var mascotPose: MascotPose = .wave
 
     private let columns = [GridItem(.flexible(), spacing: 14), GridItem(.flexible(), spacing: 14)]
 
@@ -62,16 +63,28 @@ struct HomeView: View {
     }
 
     private var header: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(greeting)
-                .font(.system(.title, design: .rounded).weight(.bold))
-                .foregroundStyle(Theme.textPrimary)
-            Text("Where would you like your mind to go today?")
-                .font(.subheadline)
-                .foregroundStyle(Theme.textSecondary)
+        HStack(alignment: .top, spacing: 8) {
+            VStack(alignment: .leading, spacing: 6) {
+                Text(greeting)
+                    .font(.system(.title, design: .rounded).weight(.bold))
+                    .foregroundStyle(Theme.textPrimary)
+                Text("Where would you like your mind to go today?")
+                    .font(.subheadline)
+                    .foregroundStyle(Theme.textSecondary)
+            }
+            Spacer(minLength: 0)
+            MascotView(pose: mascotPose, size: 76, glow: false)
+                .offset(y: -14)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.top, 12)
+        .onAppear {
+            // Wave hello on arrival, then settle into a calm idle float.
+            mascotPose = .wave
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2.6) {
+                withAnimation { mascotPose = .idle }
+            }
+        }
     }
 
     private var beginCard: some View {

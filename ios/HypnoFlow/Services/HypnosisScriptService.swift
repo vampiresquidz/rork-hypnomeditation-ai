@@ -55,7 +55,7 @@ struct HypnosisScriptService {
 
         let url = URL(string: "\(baseURL)/v2/vercel/v1/chat/completions")!
 
-        let system = Self.systemPrompt(durationMinutes: durationMinutes)
+        let system = Self.systemPrompt(durationMinutes: durationMinutes, isSleep: goal == .sleep)
         let user = Self.userPrompt(goal: goal, intention: intention, durationMinutes: durationMinutes)
 
         let body: [String: Any] = [
@@ -106,8 +106,27 @@ struct HypnosisScriptService {
 
     // MARK: - Prompts
 
-    private static func systemPrompt(durationMinutes: Int) -> String {
-        """
+    private static func systemPrompt(durationMinutes: Int, isSleep: Bool) -> String {
+        // The emergence phase differs for sleep: we let them drift down into
+        // sleep rather than counting them back up to full waking awareness.
+        let emergenceRule = isSleep
+            ? """
+            - PHASE 3 — DRIFT DOWN (final ~15%): This is a sleep session, so do NOT \
+              re-alert them. Instead let them sink the rest of the way, releasing them \
+              gently into deep, natural sleep. Slow, sparse words with long pauses \
+              (14-20). Reassure them they can let go completely now, drifting down, \
+              down into restful sleep, and end on stillness.
+            """
+            : """
+            - PHASE 3 — COUNT OUT / EMERGENCE (final ~15%): Bring them back up and out \
+              of the hypnotic state by counting UP from 1 to 5, one number region per \
+              segment. As you count up have them become more awake, alert and refreshed \
+              at each number — e.g. "one, energy returning to your body… five, eyes open, \
+              wide awake, feeling wonderful." Pauses SHORTEN as you count up (5 down to 1). \
+              End fully alert, refreshed, and carrying the session's benefit with them.
+            """
+
+        return """
         You are a world-class clinical hypnotherapist and meditation guide, in the style of \
         elite mindset coaches who work with high performers. You write deeply calming, \
         immersive hypnotic inductions with a warm, slow, permissive tone.
@@ -116,6 +135,19 @@ struct HypnosisScriptService {
         hypnotic language patterns — progressive relaxation, breath pacing, deepeners, \
         embedded suggestions, vivid sensory imagery, and gentle counting inductions. \
         Never sound clinical or robotic. Never mention that you are an AI.
+
+        Every session MUST follow this exact three-phase arc, in order:
+
+        - PHASE 1 — HYPNOTIC COUNTDOWN INDUCTION (first ~25%): Settle them in with a slow \
+          breathing induction and progressive relaxation, then guide them DOWN into a deep \
+          hypnotic state with a counting-down deepener (count down from 10 to 1, roughly one \
+          number region per segment, e.g. "ten… nine… drifting deeper"). Pauses LENGTHEN as \
+          you count down. By "one" they are deeply relaxed and receptive.
+        - PHASE 2 — GUIDED MEDITATION (middle ~60%): With them in trance, deliver the core \
+          guided meditation built around their goal and intention. Use vivid sensory imagery, \
+          a gentle journey or scene, and repeated positive, present-tense suggestions woven \
+          directly from their intention. This is the heart of the session and the longest phase.
+        \(emergenceRule)
 
         You MUST respond with ONLY valid JSON (no markdown, no code fences) in exactly this shape:
         {
@@ -127,14 +159,13 @@ struct HypnosisScriptService {
 
         Rules:
         - "pause" is the seconds of silence AFTER that line (a number from 1 to 20). \
-          Use longer pauses (8-18) during deep relaxation and imagery, shorter (1-4) during induction patter.
+          Use longer pauses (8-18) during deep relaxation and imagery, shorter (1-4) during \
+          induction patter and the count-out.
         - Keep each segment to 1-2 short sentences so it can be spoken slowly.
-        - Open with a settling-in and a slow breathing induction.
-        - Include a countdown deepener (counting down from 5 or 10, one number region per segment).
         - Weave in the user's specific intention as positive, present-tense suggestions.
-        - End by gently guiding them either toward sleep or back to gentle awareness \
-          depending on the goal.
-        - Target roughly \(durationMinutes) minutes of total experience including pauses.
+        - Target roughly \(durationMinutes) minutes of total experience including pauses. \
+          A \(durationMinutes)-minute session needs enough segments to genuinely fill that \
+          time across all three phases — do not cut it short.
         """
     }
 
@@ -144,7 +175,9 @@ struct HypnosisScriptService {
             : "Their personal intention in their own words: \"\(intention)\""
 
         return """
-        Create a \(durationMinutes)-minute hypnosis session.
+        Create a \(durationMinutes)-minute hypnosis session with the required three-phase arc:
+        a hypnotic countdown induction, a guided meditation on the subject below, then a \
+        gentle count-out to exit the hypnotic state.
         Goal: \(goal.title) — \(goal.subtitle).
         \(intentionLine)
 

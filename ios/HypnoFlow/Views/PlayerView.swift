@@ -172,6 +172,9 @@ struct PlayerView: View {
 
     private var countdownOverlay: some View {
         VStack(spacing: 20) {
+            // Professor Jelly swings his watch to guide you down as you settle in.
+            MascotView(pose: .hypnotize, size: 150)
+
             Text("Find a comfortable position")
                 .font(.system(.title3, design: .rounded).weight(.medium))
                 .foregroundStyle(Theme.textPrimary)

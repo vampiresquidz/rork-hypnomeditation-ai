@@ -32,7 +32,10 @@ struct PlayerView: View {
 
                 Spacer()
 
-                narrationLine
+                VStack(spacing: 14) {
+                    phaseBadge
+                    narrationLine
+                }
 
                 Spacer()
 
@@ -86,6 +89,30 @@ struct PlayerView: View {
         }
         .padding(.horizontal, 20)
         .padding(.top, 12)
+    }
+
+    private var phaseBadge: some View {
+        HStack(spacing: 7) {
+            Image(systemName: phaseSymbol(player.currentPhase))
+            Text(player.currentPhase.title.uppercased())
+                .tracking(1.5)
+        }
+        .font(.caption2.weight(.semibold))
+        .foregroundStyle(session.goal.tint)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 6)
+        .background(session.goal.tint.opacity(0.14), in: Capsule())
+        .opacity(player.isFinished || showCountdown ? 0 : 1)
+        .animation(.easeInOut(duration: 0.4), value: player.currentPhase)
+        .animation(.easeInOut, value: player.isFinished)
+    }
+
+    private func phaseSymbol(_ phase: SessionPhase) -> String {
+        switch phase {
+        case .induction: "arrow.down.to.line"
+        case .journey:   "sparkles"
+        case .emergence: "sun.max"
+        }
     }
 
     private var narrationLine: some View {

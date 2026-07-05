@@ -104,7 +104,15 @@ final class SessionStore {
             }
 
             stage = .finishing
-            try? await Task.sleep(for: .milliseconds(600))
+
+            // Stitch the individual clips into one continuous track with the
+            // pauses baked in as silence. Falls back to per-segment playback
+            // if stitching fails for any reason.
+            session.stitchedAudioFileName = try? await narrationService.stitchSession(
+                session.segments, sessionID: session.id
+            )
+
+            try? await Task.sleep(for: .milliseconds(400))
 
             insert(session)
             stage = .idle

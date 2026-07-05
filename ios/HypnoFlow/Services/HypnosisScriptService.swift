@@ -32,6 +32,7 @@ enum ScriptError: LocalizedError {
 private struct RawSegment: Codable {
     let text: String
     let pause: Double
+    let phase: String?
 }
 
 private struct RawScript: Codable {
@@ -95,7 +96,8 @@ struct HypnosisScriptService {
         let raw = try Self.parse(content)
         let segments = raw.segments.map {
             ScriptSegment(text: $0.text.trimmingCharacters(in: .whitespacesAndNewlines),
-                          pauseAfter: max(0, min($0.pause, 25)))
+                          pauseAfter: max(0, min($0.pause, 25)),
+                          phase: SessionPhase(rawValue: ($0.phase ?? "").lowercased()) ?? .journey)
         }
         .filter { !$0.text.isEmpty }
 
@@ -109,20 +111,24 @@ struct HypnosisScriptService {
     private static func systemPrompt(durationMinutes: Int, isSleep: Bool) -> String {
         // The emergence phase differs for sleep: we let them drift down into
         // sleep rather than counting them back up to full waking awareness.
+        // Roughly how many segments a session of this length needs to genuinely
+        // fill the time across all three phases (short lines, spoken slowly).
+        let minSegments = max(14, durationMinutes * 3)
+
         let emergenceRule = isSleep
             ? """
-            - PHASE 3 — DRIFT DOWN (final ~15%): This is a sleep session, so do NOT \
-              re-alert them. Instead let them sink the rest of the way, releasing them \
-              gently into deep, natural sleep. Slow, sparse words with long pauses \
-              (14-20). Reassure them they can let go completely now, drifting down, \
+            - PHASE 3 — DRIFT DOWN  (phase: "emergence", final ~15%): This is a sleep \
+              session, so do NOT re-alert them. Instead let them sink the rest of the way, \
+              releasing them gently into deep, natural sleep. Slow, sparse words with long \
+              pauses (14-20). Reassure them they can let go completely now, drifting down, \
               down into restful sleep, and end on stillness.
             """
             : """
-            - PHASE 3 — COUNT OUT / EMERGENCE (final ~15%): Bring them back up and out \
-              of the hypnotic state by counting UP from 1 to 5, one number region per \
-              segment. As you count up have them become more awake, alert and refreshed \
-              at each number — e.g. "one, energy returning to your body… five, eyes open, \
-              wide awake, feeling wonderful." Pauses SHORTEN as you count up (5 down to 1). \
+            - PHASE 3 — COUNT OUT / EMERGENCE  (phase: "emergence", final ~15%): Bring them \
+              back up and out of the hypnotic state by counting UP from 1 to 5, one number \
+              region per segment. As you count up have them become more awake, alert and \
+              refreshed at each number — e.g. "one, energy returning to your body… five, \
+              eyes open, wide awake, feeling wonderful." Pauses SHORTEN as you count up. \
               End fully alert, refreshed, and carrying the session's benefit with them.
             """
 
@@ -136,36 +142,42 @@ struct HypnosisScriptService {
         embedded suggestions, vivid sensory imagery, and gentle counting inductions. \
         Never sound clinical or robotic. Never mention that you are an AI.
 
-        Every session MUST follow this exact three-phase arc, in order:
+        Every session MUST follow this exact three-phase arc, in order. Tag EVERY \
+        segment with the phase it belongs to using the "phase" field.
 
-        - PHASE 1 — HYPNOTIC COUNTDOWN INDUCTION (first ~25%): Settle them in with a slow \
-          breathing induction and progressive relaxation, then guide them DOWN into a deep \
-          hypnotic state with a counting-down deepener (count down from 10 to 1, roughly one \
-          number region per segment, e.g. "ten… nine… drifting deeper"). Pauses LENGTHEN as \
-          you count down. By "one" they are deeply relaxed and receptive.
-        - PHASE 2 — GUIDED MEDITATION (middle ~60%): With them in trance, deliver the core \
-          guided meditation built around their goal and intention. Use vivid sensory imagery, \
-          a gentle journey or scene, and repeated positive, present-tense suggestions woven \
-          directly from their intention. This is the heart of the session and the longest phase.
+        - PHASE 1 — HYPNOTIC COUNTDOWN INDUCTION  (phase: "induction", first ~25%): Settle \
+          them in with a slow breathing induction and progressive relaxation, then guide them \
+          DOWN into a deep hypnotic state with a counting-down deepener (count down from 10 to \
+          1, roughly one number region per segment, e.g. "ten… nine… drifting deeper"). Pauses \
+          LENGTHEN as you count down. By "one" they are deeply relaxed and receptive.
+        - PHASE 2 — GUIDED MEDITATION  (phase: "journey", middle ~60%): With them in trance, \
+          deliver the core guided meditation built around their goal and intention. Move \
+          slowly. Use vivid sensory imagery, a gentle journey or scene, and repeated positive, \
+          present-tense suggestions woven directly from their intention. This is the heart of \
+          the session and by far the longest phase.
         \(emergenceRule)
 
         You MUST respond with ONLY valid JSON (no markdown, no code fences) in exactly this shape:
         {
           "title": "a short evocative session title (max 5 words)",
           "segments": [
-            { "text": "one or two spoken sentences", "pause": 4 }
+            { "text": "one or two spoken sentences", "pause": 4, "phase": "induction" }
           ]
         }
 
         Rules:
+        - "phase" MUST be exactly one of: "induction", "journey", "emergence". The segments \
+          must appear in that order (all induction lines, then all journey lines, then all \
+          emergence lines).
         - "pause" is the seconds of silence AFTER that line (a number from 1 to 20). \
           Use longer pauses (8-18) during deep relaxation and imagery, shorter (1-4) during \
           induction patter and the count-out.
         - Keep each segment to 1-2 short sentences so it can be spoken slowly.
         - Weave in the user's specific intention as positive, present-tense suggestions.
-        - Target roughly \(durationMinutes) minutes of total experience including pauses. \
-          A \(durationMinutes)-minute session needs enough segments to genuinely fill that \
-          time across all three phases — do not cut it short.
+        - This is a \(durationMinutes)-minute session (\(durationMinutes) minutes or MORE of \
+          total experience including pauses). Produce at least \(minSegments) segments so it \
+          genuinely fills the time — roughly 1/4 induction, 3/5 journey, the rest emergence. \
+          Do NOT cut it short; a session that is too brief is a failure.
         """
     }
 

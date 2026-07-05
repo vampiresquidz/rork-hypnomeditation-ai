@@ -5,6 +5,23 @@
 
 import Foundation
 
+/// The three-part arc of every session. Kept as first-class metadata so the
+/// structure is guaranteed (not just implied by ordering) and can be surfaced
+/// in the UI as the listener moves through the experience.
+enum SessionPhase: String, Codable, Hashable, CaseIterable {
+    case induction   // count-down into a hypnotic state
+    case journey     // the slow guided meditation on the topic
+    case emergence   // the count-out back to the day (or drift into sleep)
+
+    var title: String {
+        switch self {
+        case .induction: "Drifting down"
+        case .journey:   "The journey"
+        case .emergence: "Coming back"
+        }
+    }
+}
+
 /// A single spoken line plus the silent pause that follows it.
 /// Pauses are where the "space" of a hypnosis session lives.
 struct ScriptSegment: Codable, Identifiable, Hashable {
@@ -13,6 +30,9 @@ struct ScriptSegment: Codable, Identifiable, Hashable {
     var text: String
     /// Seconds of silence after this line before the next begins.
     var pauseAfter: Double
+    /// Which phase of the arc this line belongs to. Optional for backward
+    /// compatibility with sessions saved before phases existed.
+    var phase: SessionPhase?
 
     /// Local file name of the rendered narration audio (in the app's caches dir).
     var audioFileName: String?
@@ -63,6 +83,10 @@ struct MeditationSession: Codable, Identifiable, Hashable {
     var durationMinutes: Int
     var segments: [ScriptSegment]
     var createdAt: Date = Date()
+
+    /// File name of the single stitched narration track (all segments joined
+    /// with their pauses baked in as silence). Nil = play segments individually.
+    var stitchedAudioFileName: String?
 
     /// Estimated total run time (spoken words + pauses).
     var estimatedSeconds: Double {

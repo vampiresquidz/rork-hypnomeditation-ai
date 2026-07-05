@@ -7,6 +7,7 @@
 //
 
 import Foundation
+import AVFoundation
 
 enum NarrationError: LocalizedError {
     case notConfigured
@@ -84,6 +85,62 @@ struct NarrationService {
         let fileName = "\(segment.id.uuidString).mp3"
         let dest = Self.sessionDirectory(for: sessionID).appendingPathComponent(fileName)
         try data.write(to: dest)
+        return fileName
+    }
+
+    /// Stitches every rendered segment into one continuous narration track,
+    /// inserting each segment's `pauseAfter` as real silence between the clips.
+    /// Returns the file name of the exported `.m4a`, or throws on failure.
+    func stitchSession(_ segments: [ScriptSegment], sessionID: UUID) async throws -> String {
+        let dir = Self.sessionDirectory(for: sessionID)
+        let composition = AVMutableComposition()
+        guard let track = composition.addMutableTrack(
+            withMediaType: .audio,
+            preferredTrackID: kCMPersistentTrackID_Invalid
+        ) else { throw NarrationError.noAudio }
+
+        // Empty regions of a composition track render as silence, so we simply
+        // advance the cursor by `pauseAfter` after inserting each clip.
+        var cursor = CMTime.zero
+        let scale: CMTimeScale = 44100
+
+        for segment in segments {
+            if let name = segment.audioFileName {
+                let asset = AVURLAsset(url: dir.appendingPathComponent(name))
+                if let assetTrack = try? await asset.loadTracks(withMediaType: .audio).first,
+                   let duration = try? await asset.load(.duration),
+                   duration.seconds > 0 {
+                    try? track.insertTimeRange(
+                        CMTimeRange(start: .zero, duration: duration),
+                        of: assetTrack, at: cursor
+                    )
+                    cursor = CMTimeAdd(cursor, duration)
+                }
+            }
+            if segment.pauseAfter > 0 {
+                cursor = CMTimeAdd(cursor, CMTime(seconds: segment.pauseAfter, preferredTimescale: scale))
+            }
+        }
+
+        guard cursor.seconds > 0 else { throw NarrationError.noAudio }
+
+        let fileName = "session_full.m4a"
+        let out = dir.appendingPathComponent(fileName)
+        try? FileManager.default.removeItem(at: out)
+
+        guard let export = AVAssetExportSession(
+            asset: composition, presetName: AVAssetExportPresetAppleM4A
+        ) else { throw NarrationError.serverError(-2) }
+        export.outputURL = out
+        export.outputFileType = .m4a
+
+        await withCheckedContinuation { continuation in
+            export.exportAsynchronously { continuation.resume() }
+        }
+
+        guard export.status == .completed else {
+            throw NarrationError.serverError(-3)
+        }
         return fileName
     }
 }

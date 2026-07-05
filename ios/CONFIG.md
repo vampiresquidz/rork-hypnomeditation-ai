@@ -12,12 +12,50 @@ enum Config {
     // Your own ElevenLabs API key — narration calls ElevenLabs directly when set.
     static let ELEVENLABS_API_KEY = "sk_your_elevenlabs_key_here"
 
+    // RevenueCat public SDK key (starts with "appl_"). Empty = IAP disabled.
+    static let REVENUECAT_API_KEY = "appl_your_revenuecat_key"
+
     // Rork AI proxy — used for AI script generation (and for narration only if
     // ELEVENLABS_API_KEY is left empty).
     static let EXPO_PUBLIC_TOOLKIT_URL = "https://your-rork-toolkit-url"
     static let EXPO_PUBLIC_RORK_TOOLKIT_SECRET_KEY = "your_rork_secret"
 }
 ```
+
+## In-app purchases (RevenueCat)
+
+Payments use [RevenueCat](https://www.revenuecat.com). To make the paywall work:
+
+1. **Add the SDK** (Xcode → File → Add Package Dependencies):
+   `https://github.com/RevenueCat/purchases-ios` → add the **RevenueCat** product
+   to the HypnoFlow target. (Until this is added, the project won't compile —
+   `SubscriptionManager.swift` does `import RevenueCat`.)
+
+2. **App Store Connect** → create the products with these exact IDs:
+
+   | Type | Product ID | |
+   |------|-----------|--|
+   | Auto-renewable sub | `hypnoflow_plus_monthly` | Plus, $12.99/mo, 12 credits |
+   | Auto-renewable sub | `hypnoflow_plus_yearly`  | Plus, $79.99/yr |
+   | Auto-renewable sub | `hypnoflow_pro_monthly`  | Pro, $24.99/mo, 30 credits |
+   | Auto-renewable sub | `hypnoflow_pro_yearly`   | Pro, $149.99/yr |
+   | Consumable | `hypnoflow_credits_5`  | 5 credits, $4.99 |
+   | Consumable | `hypnoflow_credits_15` | 15 credits, $12.99 |
+   | Consumable | `hypnoflow_credits_50` | 50 credits, $39.99 |
+
+3. **RevenueCat dashboard**:
+   - Create **entitlements** named exactly `plus` and `pro`.
+   - Attach the Plus products to `plus`, the Pro products to `pro`.
+   - Create an **Offering** (the "current" one) and add all seven products as
+     packages (subscriptions + the three consumable top-ups).
+   - Copy the **public app-specific API key** (`appl_…`) into
+     `Config.REVENUECAT_API_KEY`.
+
+4. **Credit rules** (in code, `Models/Purchasing.swift`): Plus = 12 credits/mo,
+   Pro = 30 credits/mo, reset monthly with no rollover; sessions ≤10 min cost 1
+   credit, 15–20 min cost 2. New users get 3 onboarding credits. Balances are
+   currently stored on-device (`CreditStore`); move to RevenueCat Virtual
+   Currency or a backend before scaling if tamper-resistance matters.
 
 ## How narration is generated
 

@@ -15,6 +15,10 @@ enum Config {
     /// proxy below instead.
     static let ELEVENLABS_API_KEY = "07dce7c4b9ca116a9702855da571d3c1a010a7458e5cda8655418aa46a28d9c1"
 
+    /// RevenueCat public SDK key (starts with "appl_"). Leave "" to disable
+    /// in-app purchases entirely (the app then runs without paywalls).
+    static let REVENUECAT_API_KEY = ""
+
     /// Rork AI proxy base URL (used for script generation, and for narration
     /// when ELEVENLABS_API_KEY is empty).
     static let EXPO_PUBLIC_TOOLKIT_URL = ""

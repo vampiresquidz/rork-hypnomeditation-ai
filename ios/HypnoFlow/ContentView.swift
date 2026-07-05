@@ -44,4 +44,6 @@ private struct LibraryTab: View {
 #Preview {
     ContentView()
         .environment(SessionStore())
+        .environment(SubscriptionManager())
+        .environment(CreditStore())
 }

@@ -10,10 +10,17 @@ import SwiftUI
 
 struct CreateSessionView: View {
     @Environment(SessionStore.self) private var store
+    @Environment(CreditStore.self) private var credits
     @Environment(\.dismiss) private var dismiss
 
     let presetGoal: HypnosisGoal?
     let onReady: (MeditationSession) -> Void
+
+    @State private var showPaywall = false
+
+    /// Credits this session will cost, based on its length.
+    private var cost: Int { creditCost(durationMinutes: duration) }
+    private var canAfford: Bool { credits.total >= cost }
 
     @State private var goal: HypnosisGoal
     @State private var intention: String = ""
@@ -50,21 +57,38 @@ struct CreateSessionView: View {
                 }
                 .scrollDismissesKeyboard(.interactively)
 
-                VStack {
+                VStack(spacing: 8) {
                     Spacer()
-                    PrimaryButton(title: "Generate my session", systemImage: "wand.and.stars") {
+
+                    HStack(spacing: 6) {
+                        Image(systemName: "sparkles").font(.caption2)
+                        Text(canAfford
+                             ? "Uses \(cost) of your \(credits.total) credits"
+                             : "You need \(cost) credit\(cost > 1 ? "s" : "") — you have \(credits.total)")
+                    }
+                    .font(.caption.weight(.medium))
+                    .foregroundStyle(canAfford ? Theme.textSecondary : Theme.amber)
+
+                    PrimaryButton(
+                        title: canAfford ? "Generate my session" : "Get credits to generate",
+                        systemImage: canAfford ? "wand.and.stars" : "sparkles"
+                    ) {
                         intentionFocused = false
-                        showGeneration = true
+                        if canAfford {
+                            showGeneration = true
+                        } else {
+                            showPaywall = true
+                        }
                     }
                     .padding(.horizontal, 20)
                     .padding(.bottom, 8)
-                    .background(
-                        LinearGradient(colors: [.clear, Theme.void.opacity(0.9)],
-                                       startPoint: .top, endPoint: .bottom)
-                            .ignoresSafeArea()
-                            .allowsHitTesting(false)
-                    )
                 }
+                .background(
+                    LinearGradient(colors: [.clear, Theme.void.opacity(0.9)],
+                                   startPoint: .top, endPoint: .bottom)
+                        .ignoresSafeArea()
+                        .allowsHitTesting(false)
+                )
             }
             .navigationTitle("Design your session")
             .navigationBarTitleDisplayMode(.inline)
@@ -83,6 +107,8 @@ struct CreateSessionView: View {
                     voice: voice,
                     soundscape: soundscape
                 ) { session in
+                    // Generation succeeded — spend the credits now.
+                    credits.consume(cost)
                     showGeneration = false
                     dismiss()
                     // Give the sheet a beat to dismiss before presenting the player.
@@ -90,6 +116,9 @@ struct CreateSessionView: View {
                         onReady(session)
                     }
                 }
+            }
+            .sheet(isPresented: $showPaywall) {
+                PaywallView()
             }
         }
         .tint(Theme.amber)

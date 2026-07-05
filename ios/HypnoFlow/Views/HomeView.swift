@@ -7,11 +7,13 @@ import SwiftUI
 
 struct HomeView: View {
     @Environment(SessionStore.self) private var store
+    @Environment(CreditStore.self) private var credits
 
     @State private var showCreate = false
     @State private var presetGoal: HypnosisGoal? = nil
     @State private var playingSession: MeditationSession?
     @State private var mascotPose: MascotPose = .wave
+    @State private var showPaywall = false
 
     private let columns = [GridItem(.flexible(), spacing: 14), GridItem(.flexible(), spacing: 14)]
 
@@ -22,6 +24,8 @@ struct HomeView: View {
 
                 ScrollView {
                     VStack(alignment: .leading, spacing: 26) {
+                        creditsBar
+
                         header
 
                         beginCard
@@ -55,11 +59,38 @@ struct HomeView: View {
                     playingSession = session
                 }
             }
+            .sheet(isPresented: $showPaywall) {
+                PaywallView()
+            }
             .fullScreenCover(item: $playingSession) { session in
                 PlayerView(session: session)
             }
         }
         .tint(Theme.amber)
+    }
+
+    private var creditsBar: some View {
+        HStack {
+            Spacer()
+            Button {
+                showPaywall = true
+            } label: {
+                HStack(spacing: 7) {
+                    Image(systemName: "sparkles")
+                        .foregroundStyle(Theme.amber)
+                    Text("^[\(credits.total) credit](inflect: true)")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(Theme.textPrimary)
+                    Text("· Get more")
+                        .font(.caption.weight(.medium))
+                        .foregroundStyle(Theme.textSecondary)
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 9)
+                .glassCard(cornerRadius: 999)
+            }
+            .buttonStyle(.plain)
+        }
     }
 
     private var header: some View {

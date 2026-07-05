@@ -9,6 +9,15 @@
 import AVFoundation
 import SwiftUI
 
+/// A contiguous stretch of one phase on the session timeline, expressed as
+/// fractions (0…1) of the total duration — used to paint the scrubber.
+struct PhaseSpan: Identifiable {
+    let phase: SessionPhase
+    let start: Double
+    let end: Double
+    var id: Double { start }
+}
+
 @MainActor
 @Observable
 final class SessionPlayer: NSObject {
@@ -30,6 +39,10 @@ final class SessionPlayer: NSObject {
 
     /// True when playing a single pre-stitched track rather than sequencing clips.
     private var singleFile = false
+    /// Phase regions of the timeline (fractions 0…1) for the scrubber.
+    private(set) var phaseSpans: [PhaseSpan] = []
+    /// Scrubbing is only supported for the single stitched track.
+    var canSeek: Bool { singleFile }
     private var segmentDurations: [Double] = []
     /// Absolute start time (seconds) of each segment's speech on the timeline.
     private var segmentStarts: [Double] = []
@@ -73,16 +86,41 @@ final class SessionPlayer: NSObject {
             acc += d
         }
         total = max(acc, 1)
+        phaseSpans = computePhaseSpans(session.segments)
 
         // Prefer the single stitched track when it exists — smoother playback.
+        // Keep `total` on the computed timeline so the scrubber, phase spans,
+        // and the playhead all share one coordinate system.
         if let name = session.stitchedAudioFileName,
            let player = try? AVAudioPlayer(contentsOf: dir.appendingPathComponent(name)) {
             player.delegate = self
             player.prepareToPlay()
             narrationPlayer = player
-            total = max(player.duration, 1)
             singleFile = true
         }
+    }
+
+    /// Groups consecutive same-phase segments into contiguous timeline spans.
+    private func computePhaseSpans(_ segments: [ScriptSegment]) -> [PhaseSpan] {
+        guard !segments.isEmpty, total > 0, segmentStarts.count == segments.count else { return [] }
+        func phase(_ i: Int) -> SessionPhase { segments[i].phase ?? .journey }
+
+        var spans: [PhaseSpan] = []
+        var groupStart = 0
+        for i in 1...segments.count {
+            if i == segments.count || phase(i) != phase(groupStart) {
+                spans.append(PhaseSpan(phase: phase(groupStart),
+                                       start: segmentStarts[groupStart] / total,
+                                       end: 1))
+                groupStart = i
+            }
+        }
+        // Make the spans contiguous so they tile the whole bar.
+        for idx in spans.indices {
+            let end = idx + 1 < spans.count ? spans[idx + 1].start : 1.0
+            spans[idx] = PhaseSpan(phase: spans[idx].phase, start: spans[idx].start, end: end)
+        }
+        return spans
     }
 
     // MARK: - Controls
@@ -119,6 +157,19 @@ final class SessionPlayer: NSObject {
 
     func togglePlayPause() {
         isPlaying ? pause() : play()
+    }
+
+    /// Seeks the stitched track to a fraction (0…1) of the total duration.
+    func seek(to fraction: Double) {
+        guard let session else { return }
+        if isFinished { load(session) }         // rebuild playable state after the end
+        guard singleFile, let player = narrationPlayer else { return }
+
+        let t = min(max(fraction, 0), 1) * total
+        player.currentTime = t
+        elapsed = t
+        updateLine(at: t)
+        if isPlaying { player.play() }
     }
 
     func stop() {

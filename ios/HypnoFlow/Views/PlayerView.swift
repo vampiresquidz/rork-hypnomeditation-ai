@@ -130,18 +130,16 @@ struct PlayerView: View {
     }
 
     private var progressSection: some View {
-        VStack(spacing: 8) {
-            GeometryReader { geo in
-                ZStack(alignment: .leading) {
-                    Capsule()
-                        .fill(Theme.card)
-                        .frame(height: 5)
-                    Capsule()
-                        .fill(Theme.gradientAmberTeal)
-                        .frame(width: max(0, geo.size.width * player.progress), height: 5)
-                }
+        VStack(spacing: 10) {
+            PhaseScrubber(
+                spans: player.phaseSpans,
+                progress: player.progress,
+                enabled: player.canSeek && !showCountdown,
+                colorFor: phaseColor
+            ) { fraction in
+                player.seek(to: fraction)
             }
-            .frame(height: 5)
+            .frame(height: 22)
 
             HStack {
                 Text(timeString(player.elapsed))
@@ -150,6 +148,43 @@ struct PlayerView: View {
             }
             .font(.caption2.monospacedDigit())
             .foregroundStyle(Theme.textFaint)
+
+            if player.phaseSpans.count > 1 {
+                phaseLegend
+                    .padding(.top, 2)
+            }
+        }
+    }
+
+    private var phaseLegend: some View {
+        HStack(spacing: 16) {
+            ForEach(legendPhases, id: \.self) { phase in
+                HStack(spacing: 5) {
+                    Circle()
+                        .fill(phaseColor(phase))
+                        .frame(width: 7, height: 7)
+                    Text(phase.title)
+                        .font(.caption2)
+                        .foregroundStyle(Theme.textFaint)
+                }
+            }
+        }
+    }
+
+    /// The distinct phases, in the order they appear on the timeline.
+    private var legendPhases: [SessionPhase] {
+        var seen: [SessionPhase] = []
+        for span in player.phaseSpans where !seen.contains(span.phase) {
+            seen.append(span.phase)
+        }
+        return seen
+    }
+
+    private func phaseColor(_ phase: SessionPhase) -> Color {
+        switch phase {
+        case .induction: Theme.violet
+        case .journey:   session.goal.tint
+        case .emergence: Theme.amber
         }
     }
 
@@ -236,5 +271,66 @@ struct PlayerView: View {
     private func timeString(_ seconds: Double) -> String {
         let s = Int(seconds.rounded())
         return String(format: "%d:%02d", s / 60, s % 60)
+    }
+}
+
+/// A progress bar split into the three phases (each tinted), showing played
+/// progress and — when the stitched track is available — draggable to seek.
+private struct PhaseScrubber: View {
+    let spans: [PhaseSpan]
+    let progress: Double
+    let enabled: Bool
+    let colorFor: (SessionPhase) -> Color
+    let onSeek: (Double) -> Void
+
+    private let trackHeight: CGFloat = 6
+    private let gap: CGFloat = 3
+
+    var body: some View {
+        GeometryReader { geo in
+            let w = geo.size.width
+            ZStack(alignment: .leading) {
+                if spans.isEmpty {
+                    Capsule().fill(Theme.card)
+                        .frame(height: trackHeight)
+                    Capsule().fill(Theme.gradientAmberTeal)
+                        .frame(width: max(0, w * progress), height: trackHeight)
+                } else {
+                    segments(width: w, opacity: 0.22)
+                    segments(width: w, opacity: 0.95)
+                        .mask(alignment: .leading) {
+                            Rectangle().frame(width: max(0, w * progress))
+                        }
+                }
+
+                if enabled {
+                    Circle()
+                        .fill(.white)
+                        .frame(width: 15, height: 15)
+                        .shadow(color: .black.opacity(0.3), radius: 3, y: 1)
+                        .offset(x: min(max(w * progress - 7.5, 0), w - 15))
+                }
+            }
+            .frame(maxHeight: .infinity)
+            .contentShape(Rectangle())
+            .gesture(
+                DragGesture(minimumDistance: 0)
+                    .onChanged { value in
+                        guard enabled, w > 0 else { return }
+                        onSeek(min(max(value.location.x / w, 0), 1))
+                    }
+            )
+        }
+    }
+
+    private func segments(width w: CGFloat, opacity: Double) -> some View {
+        ZStack(alignment: .leading) {
+            ForEach(spans) { span in
+                Capsule()
+                    .fill(colorFor(span.phase).opacity(opacity))
+                    .frame(width: max(2, w * (span.end - span.start) - gap), height: trackHeight)
+                    .offset(x: w * span.start)
+            }
+        }
     }
 }

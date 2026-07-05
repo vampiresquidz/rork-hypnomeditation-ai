@@ -59,6 +59,12 @@ struct PlayerView: View {
             startCountdown()
         }
         .onDisappear { player.stop() }
+        .onChange(of: player.currentPhase) { _, _ in
+            // A soft tick as the listener crosses from one phase into the next.
+            guard !showCountdown else { return }
+            let g = UIImpactFeedbackGenerator(style: .soft)
+            g.impactOccurred()
+        }
     }
 
     // MARK: Pieces
@@ -159,16 +165,31 @@ struct PlayerView: View {
     private var phaseLegend: some View {
         HStack(spacing: 16) {
             ForEach(legendPhases, id: \.self) { phase in
-                HStack(spacing: 5) {
-                    Circle()
-                        .fill(phaseColor(phase))
-                        .frame(width: 7, height: 7)
-                    Text(phase.title)
-                        .font(.caption2)
-                        .foregroundStyle(Theme.textFaint)
+                Button {
+                    guard player.canSeek else { return }
+                    let g = UIImpactFeedbackGenerator(style: .soft)
+                    g.impactOccurred()
+                    player.seek(to: startFraction(of: phase))
+                } label: {
+                    HStack(spacing: 5) {
+                        Circle()
+                            .fill(phaseColor(phase))
+                            .frame(width: 7, height: 7)
+                        Text(phase.title)
+                            .font(.caption2)
+                            .foregroundStyle(player.currentPhase == phase ? phaseColor(phase) : Theme.textFaint)
+                    }
                 }
+                .buttonStyle(.plain)
+                .disabled(!player.canSeek)
             }
         }
+        .animation(.easeInOut(duration: 0.3), value: player.currentPhase)
+    }
+
+    /// Timeline fraction where a given phase begins.
+    private func startFraction(of phase: SessionPhase) -> Double {
+        player.phaseSpans.first { $0.phase == phase }?.start ?? 0
     }
 
     /// The distinct phases, in the order they appear on the timeline.

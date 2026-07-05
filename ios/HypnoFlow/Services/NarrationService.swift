@@ -41,33 +41,47 @@ struct NarrationService {
         return dir
     }
 
+    /// Calm, consistent, slow hypnotic delivery.
+    private var voiceSettings: [String: Any] {
+        [
+            "stability": 0.65,
+            "similarity_boost": 0.75,
+            "style": 0.15,
+            "use_speaker_boost": true
+        ]
+    }
+
     /// Renders one line of narration and writes it to disk, returning the file name.
     func renderSegment(
         _ segment: ScriptSegment,
         voice: NarratorVoice,
         sessionID: UUID
     ) async throws -> String {
-        guard !baseURL.isEmpty, !secret.isEmpty else { throw NarrationError.notConfigured }
+        // Prefer a directly-configured ElevenLabs key; otherwise use the Rork proxy.
+        let directKey = Config.ELEVENLABS_API_KEY.trimmingCharacters(in: .whitespacesAndNewlines)
 
-        let url = URL(string: "\(baseURL)/v2/elevenlabs/v1/text-to-speech/\(voice.voiceId)")!
+        var request: URLRequest
+        if !directKey.isEmpty {
+            let url = URL(string: "https://api.elevenlabs.io/v1/text-to-speech/\(voice.voiceId)?output_format=mp3_44100_128")!
+            request = URLRequest(url: url)
+            request.setValue(directKey, forHTTPHeaderField: "xi-api-key")
+            request.setValue("audio/mpeg", forHTTPHeaderField: "Accept")
+        } else {
+            guard !baseURL.isEmpty, !secret.isEmpty else { throw NarrationError.notConfigured }
+            let url = URL(string: "\(baseURL)/v2/elevenlabs/v1/text-to-speech/\(voice.voiceId)")!
+            request = URLRequest(url: url)
+            request.setValue("Bearer \(secret)", forHTTPHeaderField: "Authorization")
+        }
 
         let body: [String: Any] = [
             "text": segment.text,
             "model_id": modelId,
-            "voice_settings": [
-                // Calm, consistent, slow hypnotic delivery.
-                "stability": 0.65,
-                "similarity_boost": 0.75,
-                "style": 0.15,
-                "use_speaker_boost": true
-            ]
+            "voice_settings": voiceSettings
         ]
 
-        var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.timeoutInterval = 90
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.setValue("Bearer \(secret)", forHTTPHeaderField: "Authorization")
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
 
         let (data, response) = try await URLSession.shared.data(for: request)

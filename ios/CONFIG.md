@@ -26,10 +26,11 @@ enum Config {
 
 Payments use [RevenueCat](https://www.revenuecat.com). To make the paywall work:
 
-1. **Add the SDK** (Xcode → File → Add Package Dependencies):
-   `https://github.com/RevenueCat/purchases-ios` → add the **RevenueCat** product
-   to the HypnoFlow target. (Until this is added, the project won't compile —
-   `SubscriptionManager.swift` does `import RevenueCat`.)
+1. **SDK — already added.** The RevenueCat Swift package
+   (`https://github.com/RevenueCat/purchases-ios`, up-to-next-major from 5.0.0) is
+   referenced in the Xcode project, so it resolves automatically on first build
+   (needs network once). Nothing to add manually. If Xcode ever asks, use
+   File → Packages → Resolve Package Versions.
 
 2. **App Store Connect** → create the products with these exact IDs:
 

@@ -21,6 +21,7 @@ enum MascotPose: String, CaseIterable {
     case hypnotize  // swinging the pocket watch
     case meditate   // lotus hands, slow breathing
     case sleep      // eyes closed, Zzz
+    case celebrate  // tentacles raised in a joyful cheer
 
     var sheetName: String {
         switch self {
@@ -29,6 +30,7 @@ enum MascotPose: String, CaseIterable {
         case .hypnotize: "MascotAnimHypno"
         case .meditate:  "MascotAnimMeditate"
         case .sleep:     "MascotAnimSleep"
+        case .celebrate: "MascotAnimCelebrate"
         }
     }
 
@@ -39,6 +41,7 @@ enum MascotPose: String, CaseIterable {
         case .hypnotize: "MascotHypno"
         case .meditate:  "MascotMeditate"
         case .sleep:     "MascotSleep"
+        case .celebrate: "MascotCelebrate"
         }
     }
 }

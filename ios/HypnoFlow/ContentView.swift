@@ -8,6 +8,9 @@
 import SwiftUI
 
 struct ContentView: View {
+    @Environment(OnboardingStore.self) private var onboarding
+    @State private var showPaywall = false
+
     var body: some View {
         TabView {
             HomeView()
@@ -22,6 +25,25 @@ struct ContentView: View {
         }
         .tint(Theme.amber)
         .preferredColorScheme(.dark)
+        // First-run onboarding funnel — stays up until the user finishes it.
+        .fullScreenCover(isPresented: .init(
+            get: { !onboarding.hasCompletedOnboarding },
+            set: { _ in }
+        )) {
+            OnboardingView()
+        }
+        // If they finished onboarding by choosing to see plans, present the
+        // paywall once, at peak motivation.
+        .sheet(isPresented: $showPaywall) { PaywallView() }
+        .onChange(of: onboarding.hasCompletedOnboarding) { _, done in
+            guard done, onboarding.wantsPaywallOnEntry else { return }
+            onboarding.wantsPaywallOnEntry = false
+            // Let the onboarding cover finish dismissing before presenting.
+            Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(550))
+                showPaywall = true
+            }
+        }
     }
 }
 
@@ -42,8 +64,11 @@ private struct LibraryTab: View {
 }
 
 #Preview {
-    ContentView()
+    let onboarding = OnboardingStore()
+    onboarding.hasCompletedOnboarding = true
+    return ContentView()
         .environment(SessionStore())
         .environment(SubscriptionManager())
         .environment(CreditStore())
+        .environment(onboarding)
 }

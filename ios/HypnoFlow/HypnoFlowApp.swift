@@ -12,6 +12,7 @@ struct HypnoFlowApp: App {
     @State private var store = SessionStore()
     @State private var subscriptions = SubscriptionManager()
     @State private var credits = CreditStore()
+    @State private var onboarding = OnboardingStore()
 
     var body: some Scene {
         WindowGroup {
@@ -19,6 +20,7 @@ struct HypnoFlowApp: App {
                 .environment(store)
                 .environment(subscriptions)
                 .environment(credits)
+                .environment(onboarding)
                 .task {
                     // Grant onboarding/monthly credits, then keep them in sync
                     // as the subscription entitlement changes.

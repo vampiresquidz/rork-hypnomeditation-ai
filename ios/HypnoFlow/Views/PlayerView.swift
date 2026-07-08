@@ -11,7 +11,7 @@ import SwiftUI
 struct PlayerView: View {
     @Environment(\.dismiss) private var dismiss
 
-    let session: MeditationSession
+    let session: SessionModel
 
     @State private var player = SessionPlayer()
     @State private var showCountdown = true

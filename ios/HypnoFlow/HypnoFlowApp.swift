@@ -6,13 +6,24 @@
 //
 
 import SwiftUI
+import SwiftData
 
 @main
 struct HypnoFlowApp: App {
-    @State private var store = SessionStore()
+    private let container: ModelContainer
+
+    @State private var store: SessionStore
     @State private var subscriptions = SubscriptionManager()
     @State private var credits = CreditStore()
     @State private var onboarding = OnboardingStore()
+
+    init() {
+        let container = Self.makeContainer()
+        self.container = container
+        _store = State(initialValue: SessionStore(context: container.mainContext))
+        // Lift any pre-SwiftData library into the store on first launch.
+        SessionMigration.runIfNeeded(context: container.mainContext)
+    }
 
     var body: some Scene {
         WindowGroup {
@@ -30,6 +41,26 @@ struct HypnoFlowApp: App {
                     }
                     subscriptions.configure()
                 }
+        }
+        .modelContainer(container)
+    }
+
+    /// Builds the SwiftData container. Prefers an iCloud-synced store so a user's
+    /// library follows them across devices; if the CloudKit entitlement isn't set
+    /// up yet, falls back to a local-only store so the app still runs everywhere.
+    private static func makeContainer() -> ModelContainer {
+        let schema = Schema([SessionModel.self])
+
+        let cloudConfig = ModelConfiguration(schema: schema, cloudKitDatabase: .automatic)
+        if let container = try? ModelContainer(for: schema, configurations: cloudConfig) {
+            return container
+        }
+
+        let localConfig = ModelConfiguration(schema: schema, cloudKitDatabase: .none)
+        do {
+            return try ModelContainer(for: schema, configurations: localConfig)
+        } catch {
+            fatalError("Could not create the HypnoFlow data store: \(error)")
         }
     }
 }

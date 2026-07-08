@@ -17,7 +17,7 @@ struct GenerationView: View {
     let duration: Int
     let voice: NarratorVoice
     let soundscape: Soundscape
-    let onComplete: (MeditationSession) -> Void
+    let onComplete: (SessionModel) -> Void
 
     @State private var started = false
     @State private var pulse = false

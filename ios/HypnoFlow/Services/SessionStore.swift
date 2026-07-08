@@ -2,12 +2,14 @@
 //  SessionStore.swift
 //  HypnoFlow
 //
-//  Owns the user's saved library and orchestrates generation
-//  (script -> narration) with live progress reporting.
+//  Orchestrates generation (script -> narration -> stitch) with live progress
+//  and writes finished sessions into SwiftData. The saved library itself is read
+//  by the views via @Query, so this type no longer holds the array — SwiftData
+//  (and CloudKit) are the single source of truth.
 //
 
 import Foundation
-import SwiftUI
+import SwiftData
 
 /// Live status while a session is being generated.
 enum GenerationStage: Equatable {
@@ -42,32 +44,41 @@ enum GenerationStage: Equatable {
 @MainActor
 @Observable
 final class SessionStore {
-    private(set) var library: [MeditationSession] = []
     private(set) var stage: GenerationStage = .idle
     private(set) var isGenerating: Bool = false
 
     private let scriptService = HypnosisScriptService()
     private let narrationService = NarrationService()
 
-    private let storeURL: URL = {
-        let base = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-        return base.appendingPathComponent("library.json")
-    }()
+    /// The SwiftData context finished sessions are written into. Shared with the
+    /// container's mainContext, so @Query views update the moment we insert.
+    private let context: ModelContext
 
-    init() {
-        load()
+    init(context: ModelContext) {
+        self.context = context
     }
+
+    #if DEBUG
+    /// Convenience for previews — spins up an in-memory store.
+    convenience init() {
+        let container = try! ModelContainer(
+            for: SessionModel.self,
+            configurations: ModelConfiguration(isStoredInMemoryOnly: true)
+        )
+        self.init(context: container.mainContext)
+    }
+    #endif
 
     // MARK: - Generation
 
-    /// Generates a full session end-to-end. Returns the finished session on success.
+    /// Generates a full session end-to-end and persists it. Returns it on success.
     func generate(
         goal: HypnosisGoal,
         intention: String,
         durationMinutes: Int,
         voice: NarratorVoice,
         soundscape: Soundscape
-    ) async -> MeditationSession? {
+    ) async -> SessionModel? {
         isGenerating = true
         stage = .writing
         defer { isGenerating = false }
@@ -79,42 +90,46 @@ final class SessionStore {
                 durationMinutes: durationMinutes
             )
 
-            var session = MeditationSession(
+            // One id keys both the model and its on-disk audio directory.
+            let sessionID = UUID()
+            var segments = rawSegments
+
+            stage = .recording(done: 0, total: segments.count)
+
+            // Render narration sequentially — a calm, ordered progress bar and
+            // no hammering the TTS endpoint. Build the finished array locally so
+            // we only touch SwiftData once, at the end.
+            for index in segments.indices {
+                let fileName = try await narrationService.renderSegment(
+                    segments[index],
+                    voice: voice,
+                    sessionID: sessionID
+                )
+                segments[index].audioFileName = fileName
+                stage = .recording(done: index + 1, total: segments.count)
+            }
+
+            stage = .finishing
+
+            // Stitch clips into one continuous track (pauses baked in as silence).
+            let stitched = try? await narrationService.stitchSession(segments, sessionID: sessionID)
+
+            try? await Task.sleep(for: .milliseconds(400))
+
+            let session = SessionModel(
+                id: sessionID,
                 title: title,
                 goal: goal,
                 voice: voice,
                 soundscape: soundscape,
                 intention: intention,
                 durationMinutes: durationMinutes,
-                segments: rawSegments
+                segments: segments,
+                stitchedAudioFileName: stitched
             )
+            context.insert(session)
+            try? context.save()
 
-            stage = .recording(done: 0, total: session.segments.count)
-
-            // Render narration sequentially to keep a calm, ordered progress bar
-            // and avoid hammering the TTS endpoint.
-            for index in session.segments.indices {
-                let fileName = try await narrationService.renderSegment(
-                    session.segments[index],
-                    voice: voice,
-                    sessionID: session.id
-                )
-                session.segments[index].audioFileName = fileName
-                stage = .recording(done: index + 1, total: session.segments.count)
-            }
-
-            stage = .finishing
-
-            // Stitch the individual clips into one continuous track with the
-            // pauses baked in as silence. Falls back to per-segment playback
-            // if stitching fails for any reason.
-            session.stitchedAudioFileName = try? await narrationService.stitchSession(
-                session.segments, sessionID: session.id
-            )
-
-            try? await Task.sleep(for: .milliseconds(400))
-
-            insert(session)
             stage = .idle
             return session
         } catch {
@@ -131,29 +146,10 @@ final class SessionStore {
 
     // MARK: - Library
 
-    func insert(_ session: MeditationSession) {
-        library.insert(session, at: 0)
-        persist()
-    }
-
-    func delete(_ session: MeditationSession) {
-        library.removeAll { $0.id == session.id }
+    func delete(_ session: SessionModel) {
+        // Remove the rendered audio for this session, then the record.
         try? FileManager.default.removeItem(at: NarrationService.sessionDirectory(for: session.id))
-        persist()
-    }
-
-    // MARK: - Persistence
-
-    private func load() {
-        guard let data = try? Data(contentsOf: storeURL),
-              let decoded = try? JSONDecoder().decode([MeditationSession].self, from: data) else {
-            return
-        }
-        library = decoded
-    }
-
-    private func persist() {
-        guard let data = try? JSONEncoder().encode(library) else { return }
-        try? data.write(to: storeURL, options: .atomic)
+        context.delete(session)
+        try? context.save()
     }
 }

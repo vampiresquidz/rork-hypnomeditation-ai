@@ -4,14 +4,15 @@
 //
 
 import SwiftUI
+import SwiftData
 
 struct HomeView: View {
-    @Environment(SessionStore.self) private var store
     @Environment(CreditStore.self) private var credits
+    @Query(sort: \SessionModel.createdAt, order: .reverse) private var sessions: [SessionModel]
 
     @State private var showCreate = false
     @State private var presetGoal: HypnosisGoal? = nil
-    @State private var playingSession: MeditationSession?
+    @State private var playingSession: SessionModel?
     @State private var mascotPose: MascotPose = .wave
     @State private var showPaywall = false
 
@@ -43,7 +44,7 @@ struct HomeView: View {
                             }
                         }
 
-                        if !store.library.isEmpty {
+                        if !sessions.isEmpty {
                             recentSection
                         }
 
@@ -164,7 +165,7 @@ struct HomeView: View {
                         .foregroundStyle(Theme.amber)
                 }
             }
-            ForEach(store.library.prefix(3)) { session in
+            ForEach(sessions.prefix(3)) { session in
                 Button {
                     playingSession = session
                 } label: {
@@ -193,7 +194,7 @@ struct HomeView: View {
 }
 
 struct SessionRow: View {
-    let session: MeditationSession
+    let session: SessionModel
 
     var body: some View {
         HStack(spacing: 14) {

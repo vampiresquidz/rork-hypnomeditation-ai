@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import SwiftData
 
 struct ContentView: View {
     @Environment(OnboardingStore.self) private var onboarding
@@ -50,7 +51,7 @@ struct ContentView: View {
 /// The Library as a top-level tab: its own navigation stack plus the player
 /// presentation, so sessions can be played straight from here.
 private struct LibraryTab: View {
-    @State private var playingSession: MeditationSession?
+    @State private var playingSession: SessionModel?
 
     var body: some View {
         NavigationStack {
@@ -67,6 +68,7 @@ private struct LibraryTab: View {
     let onboarding = OnboardingStore()
     onboarding.hasCompletedOnboarding = true
     return ContentView()
+        .modelContainer(.preview)
         .environment(SessionStore())
         .environment(SubscriptionManager())
         .environment(CreditStore())

@@ -14,7 +14,7 @@ struct CreateSessionView: View {
     @Environment(\.dismiss) private var dismiss
 
     let presetGoal: HypnosisGoal?
-    let onReady: (MeditationSession) -> Void
+    let onReady: (SessionModel) -> Void
 
     @State private var showPaywall = false
 
@@ -32,7 +32,7 @@ struct CreateSessionView: View {
 
     private let durations = [5, 10, 15, 20]
 
-    init(presetGoal: HypnosisGoal?, onReady: @escaping (MeditationSession) -> Void) {
+    init(presetGoal: HypnosisGoal?, onReady: @escaping (SessionModel) -> Void) {
         self.presetGoal = presetGoal
         self.onReady = onReady
         _goal = State(initialValue: presetGoal ?? .calm)

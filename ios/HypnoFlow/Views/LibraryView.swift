@@ -7,6 +7,7 @@
 //
 
 import SwiftUI
+import SwiftData
 
 private enum LibrarySort: String, CaseIterable, Identifiable {
     case newest, oldest, longest
@@ -29,7 +30,8 @@ private enum LibrarySort: String, CaseIterable, Identifiable {
 
 struct LibraryView: View {
     @Environment(SessionStore.self) private var store
-    @Binding var playingSession: MeditationSession?
+    @Query(sort: \SessionModel.createdAt, order: .reverse) private var sessions: [SessionModel]
+    @Binding var playingSession: SessionModel?
 
     @State private var query = ""
     @State private var selectedGoal: HypnosisGoal? = nil
@@ -39,7 +41,7 @@ struct LibraryView: View {
         ZStack {
             AuroraBackground(animated: false)
 
-            if store.library.isEmpty {
+            if sessions.isEmpty {
                 emptyState
             } else {
                 VStack(spacing: 14) {
@@ -81,7 +83,7 @@ struct LibraryView: View {
         .navigationBarTitleDisplayMode(.large)
         .toolbarBackground(.hidden, for: .navigationBar)
         .toolbar {
-            if !store.library.isEmpty {
+            if !sessions.isEmpty {
                 ToolbarItem(placement: .topBarTrailing) {
                     Menu {
                         Picker("Sort", selection: $sort) {
@@ -102,11 +104,11 @@ struct LibraryView: View {
 
     /// Goals that actually have at least one saved session.
     private var availableGoals: [HypnosisGoal] {
-        HypnosisGoal.allCases.filter { g in store.library.contains { $0.goal == g } }
+        HypnosisGoal.allCases.filter { g in sessions.contains { $0.goal == g } }
     }
 
-    private var filtered: [MeditationSession] {
-        var items = store.library
+    private var filtered: [SessionModel] {
+        var items = sessions
 
         if let goal = selectedGoal {
             items = items.filter { $0.goal == goal }
@@ -127,10 +129,10 @@ struct LibraryView: View {
         return items
     }
 
-    private func delete(_ session: MeditationSession) {
+    private func delete(_ session: SessionModel) {
         store.delete(session)
         // If the active goal filter no longer has any sessions, clear it.
-        if let goal = selectedGoal, !store.library.contains(where: { $0.goal == goal }) {
+        if let goal = selectedGoal, !sessions.contains(where: { $0.goal == goal }) {
             withAnimation { selectedGoal = nil }
         }
     }

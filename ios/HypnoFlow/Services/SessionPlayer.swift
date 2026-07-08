@@ -32,7 +32,7 @@ final class SessionPlayer: NSObject {
 
     var progress: Double { total > 0 ? min(elapsed / total, 1) : 0 }
 
-    private var session: MeditationSession?
+    private var session: SessionModel?
     private var narrationPlayer: AVAudioPlayer?
     private var ambientPlayer: AVAudioPlayer?
     private var chimePlayer: AVAudioPlayer?
@@ -53,7 +53,7 @@ final class SessionPlayer: NSObject {
 
     // MARK: - Loading
 
-    func load(_ session: MeditationSession) {
+    func load(_ session: SessionModel) {
         stop()
         self.session = session
         self.isFinished = false

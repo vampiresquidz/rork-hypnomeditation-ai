@@ -16,6 +16,7 @@ struct HypnoFlowApp: App {
     @State private var subscriptions = SubscriptionManager()
     @State private var credits = CreditStore()
     @State private var onboarding = OnboardingStore()
+    @State private var auth = AuthStore()
 
     init() {
         let container = Self.makeContainer()
@@ -32,6 +33,7 @@ struct HypnoFlowApp: App {
                 .environment(subscriptions)
                 .environment(credits)
                 .environment(onboarding)
+                .environment(auth)
                 .task {
                     // Grant onboarding/monthly credits, then keep them in sync
                     // as the subscription entitlement changes.
@@ -39,7 +41,24 @@ struct HypnoFlowApp: App {
                     subscriptions.onTierChange = { tier in
                         credits.sync(tier: tier)
                     }
+
+                    // Tie account identity to RevenueCat so entitlements follow
+                    // the person across devices.
+                    auth.onSignIn = { userID in
+                        Task { await subscriptions.identify(userID) }
+                    }
+                    auth.onSignOut = {
+                        Task { await subscriptions.signOutUser() }
+                    }
+
                     subscriptions.configure()
+
+                    // Confirm the stored Apple credential is still valid, and
+                    // (re)identify an already-signed-in user with RevenueCat.
+                    await auth.refreshCredentialState()
+                    if let userID = auth.userID {
+                        await subscriptions.identify(userID)
+                    }
                 }
         }
         .modelContainer(container)

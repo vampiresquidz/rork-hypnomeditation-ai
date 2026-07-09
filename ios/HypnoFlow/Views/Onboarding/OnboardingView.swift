@@ -23,6 +23,7 @@ struct OnboardingView: View {
 
     @State private var step: Step = .welcome
     @State private var goingForward = true
+    @State private var showLogin = false
 
     enum Step: Int, CaseIterable {
         case welcome, social, goal, mind, experience, unwind, building, plan, notifications, offer
@@ -51,6 +52,9 @@ struct OnboardingView: View {
             }
         }
         .preferredColorScheme(.dark)
+        .sheet(isPresented: $showLogin) {
+            LoginSheet()
+        }
     }
 
     // MARK: - Top bar (back + progress)
@@ -97,7 +101,7 @@ struct OnboardingView: View {
 
         switch step {
         case .welcome:
-            WelcomeStep(onContinue: advance)
+            WelcomeStep(onContinue: advance, onLogin: { showLogin = true })
 
         case .social:
             SocialProofStep(onContinue: advance)
@@ -286,4 +290,5 @@ struct SelectableCard: View {
         .environment(OnboardingStore())
         .environment(SubscriptionManager())
         .environment(CreditStore())
+        .environment(AuthStore())
 }

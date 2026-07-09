@@ -13,6 +13,7 @@ import UserNotifications
 
 struct WelcomeStep: View {
     var onContinue: () -> Void
+    var onLogin: () -> Void
 
     var body: some View {
         OnboardingScaffold(
@@ -23,11 +24,21 @@ struct WelcomeStep: View {
         ) {
             EmptyView()
         } footer: {
-            VStack(spacing: 10) {
+            VStack(spacing: 12) {
                 PrimaryButton(title: "Get started", systemImage: "sparkles", action: onContinue)
-                Text("Takes about 30 seconds")
-                    .font(.caption)
-                    .foregroundStyle(Theme.textFaint)
+
+                Button(action: onLogin) {
+                    HStack(spacing: 4) {
+                        Text("Already have an account?")
+                            .foregroundStyle(Theme.textFaint)
+                        Text("Log in")
+                            .foregroundStyle(Theme.amber)
+                            .fontWeight(.semibold)
+                    }
+                    .font(.subheadline)
+                }
+                .buttonStyle(.plain)
+                .padding(.vertical, 2)
             }
         }
     }

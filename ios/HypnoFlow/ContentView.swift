@@ -10,6 +10,7 @@ import SwiftData
 
 struct ContentView: View {
     @Environment(OnboardingStore.self) private var onboarding
+    @Environment(AuthStore.self) private var auth
     @State private var showPaywall = false
 
     var body: some View {
@@ -26,9 +27,10 @@ struct ContentView: View {
         }
         .tint(Theme.amber)
         .preferredColorScheme(.dark)
-        // First-run onboarding funnel — stays up until the user finishes it.
+        // First-run onboarding funnel — skipped entirely once the user is signed
+        // in, and stays up for new/guest users until they finish it.
         .fullScreenCover(isPresented: .init(
-            get: { !onboarding.hasCompletedOnboarding },
+            get: { !auth.isSignedIn && !onboarding.hasCompletedOnboarding },
             set: { _ in }
         )) {
             OnboardingView()
@@ -73,4 +75,5 @@ private struct LibraryTab: View {
         .environment(SubscriptionManager())
         .environment(CreditStore())
         .environment(onboarding)
+        .environment(AuthStore())
 }

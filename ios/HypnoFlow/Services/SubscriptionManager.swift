@@ -90,4 +90,19 @@ final class SubscriptionManager {
     func restore() async {
         if let info = try? await Purchases.shared.restorePurchases() { apply(info) }
     }
+
+    // MARK: - Identity
+
+    /// Associates purchases/entitlements with a stable account id (the Apple user
+    /// identifier) so a subscription follows the person across devices.
+    func identify(_ appUserID: String) async {
+        guard isConfigured else { return }
+        if let (info, _) = try? await Purchases.shared.logIn(appUserID) { apply(info) }
+    }
+
+    /// Returns to an anonymous RevenueCat user (on sign out).
+    func signOutUser() async {
+        guard isConfigured else { return }
+        if let info = try? await Purchases.shared.logOut() { apply(info) }
+    }
 }

@@ -21,7 +21,7 @@ struct SettingsView: View {
     @State private var showPaywall = false
 
     // Legal / support endpoints.
-    private let privacyURL = URL(string: "https://hypnoflow.dev/privacy")!
+    private let privacyURL = URL(string: "https://hypnoflow.dev/privacy.html")!
     private let termsURL = URL(string: "https://www.apple.com/legal/internet-services/itunes/dev/stdeula/")!
     private let supportEmail = "support@hypnoflow.dev"
 

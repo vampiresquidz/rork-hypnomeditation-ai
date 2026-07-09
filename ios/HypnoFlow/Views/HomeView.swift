@@ -15,7 +15,7 @@ struct HomeView: View {
     @State private var playingSession: SessionModel?
     @State private var mascotPose: MascotPose = .wave
     @State private var showPaywall = false
-    @State private var showAccount = false
+    @State private var showSettings = false
 
     private let columns = [GridItem(.flexible(), spacing: 14), GridItem(.flexible(), spacing: 14)]
 
@@ -64,8 +64,8 @@ struct HomeView: View {
             .sheet(isPresented: $showPaywall) {
                 PaywallView()
             }
-            .sheet(isPresented: $showAccount) {
-                AccountView()
+            .sheet(isPresented: $showSettings) {
+                SettingsView()
             }
             .fullScreenCover(item: $playingSession) { session in
                 PlayerView(session: session)
@@ -77,10 +77,10 @@ struct HomeView: View {
     private var creditsBar: some View {
         HStack {
             Button {
-                showAccount = true
+                showSettings = true
             } label: {
-                Image(systemName: "person.circle")
-                    .font(.title2)
+                Image(systemName: "gearshape.fill")
+                    .font(.body)
                     .foregroundStyle(Theme.textSecondary)
                     .frame(width: 38, height: 38)
                     .glassCard(cornerRadius: 999)

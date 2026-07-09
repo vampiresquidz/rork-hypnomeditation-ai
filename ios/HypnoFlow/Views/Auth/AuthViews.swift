@@ -88,8 +88,10 @@ struct AccountView: View {
     @Environment(SubscriptionManager.self) private var subs
     @Environment(CreditStore.self) private var credits
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.openURL) private var openURL
 
     @State private var confirmSignOut = false
+    @State private var showPaywall = false
 
     var body: some View {
         NavigationStack {
@@ -104,17 +106,6 @@ struct AccountView: View {
                         if auth.isSignedIn {
                             identityCard
                             planCard
-                            Button(role: .destructive) {
-                                confirmSignOut = true
-                            } label: {
-                                Text("Sign out")
-                                    .font(.headline)
-                                    .frame(maxWidth: .infinity)
-                                    .padding(.vertical, 15)
-                                    .glassCard(cornerRadius: 16)
-                            }
-                            .buttonStyle(.plain)
-                            .foregroundStyle(Theme.amber)
                         } else {
                             VStack(spacing: 8) {
                                 Text("Save your progress")
@@ -130,6 +121,22 @@ struct AccountView: View {
                             planCard
                         }
 
+                        manageSection
+
+                        if auth.isSignedIn {
+                            Button(role: .destructive) {
+                                confirmSignOut = true
+                            } label: {
+                                Text("Sign out")
+                                    .font(.headline)
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 15)
+                                    .glassCard(cornerRadius: 16)
+                            }
+                            .buttonStyle(.plain)
+                            .foregroundStyle(Theme.amber)
+                        }
+
                         Button("Restore purchases") {
                             Task { await subs.restore() }
                         }
@@ -140,6 +147,7 @@ struct AccountView: View {
                     .padding(20)
                 }
             }
+            .sheet(isPresented: $showPaywall) { PaywallView() }
             .navigationTitle("Account")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -158,6 +166,69 @@ struct AccountView: View {
         }
         .tint(Theme.amber)
         .preferredColorScheme(.dark)
+    }
+
+    // MARK: - Manage (buy credits / subscription)
+
+    private var manageSection: some View {
+        VStack(spacing: 12) {
+            actionRow(
+                symbol: "sparkles",
+                tint: Theme.amber,
+                title: "Buy credits",
+                subtitle: "One-time top-ups that never expire"
+            ) {
+                showPaywall = true
+            }
+
+            if subs.tier != .free {
+                actionRow(
+                    symbol: "creditcard",
+                    tint: Theme.teal,
+                    title: "Manage subscription",
+                    subtitle: "Change plan or cancel anytime"
+                ) {
+                    Task {
+                        let shown = await subs.openManageSubscriptions()
+                        if !shown, let url = URL(string: "https://apps.apple.com/account/subscriptions") {
+                            openURL(url)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private func actionRow(
+        symbol: String,
+        tint: Color,
+        title: String,
+        subtitle: String,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            HStack(spacing: 14) {
+                ZStack {
+                    Circle().fill(tint.opacity(0.16)).frame(width: 42, height: 42)
+                    Image(systemName: symbol).foregroundStyle(tint)
+                }
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .font(.system(.subheadline, design: .rounded).weight(.semibold))
+                        .foregroundStyle(Theme.textPrimary)
+                    Text(subtitle)
+                        .font(.caption)
+                        .foregroundStyle(Theme.textSecondary)
+                }
+                Spacer(minLength: 0)
+                Image(systemName: "chevron.right")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(Theme.textFaint)
+            }
+            .padding(14)
+            .glassCard(cornerRadius: 18)
+        }
+        .buttonStyle(.plain)
     }
 
     private var identityCard: some View {

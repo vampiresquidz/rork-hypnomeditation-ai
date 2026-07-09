@@ -105,4 +105,22 @@ final class SubscriptionManager {
         guard isConfigured else { return }
         if let info = try? await Purchases.shared.logOut() { apply(info) }
     }
+
+    // MARK: - Manage / cancel
+
+    /// Presents Apple's native "Manage Subscriptions" sheet, where the user can
+    /// change or cancel their plan (apps can't cancel a subscription directly).
+    /// Returns false if it couldn't be shown, so the caller can fall back to the
+    /// App Store subscriptions URL.
+    @discardableResult
+    func openManageSubscriptions() async -> Bool {
+        guard isConfigured else { return false }
+        do {
+            try await Purchases.shared.showManageSubscriptions()
+            await refresh()   // reflect any change they made
+            return true
+        } catch {
+            return false
+        }
+    }
 }

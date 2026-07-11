@@ -32,6 +32,10 @@ final class SessionPlayer: NSObject {
 
     var progress: Double { total > 0 ? min(elapsed / total, 1) : 0 }
 
+    /// Called once when a session plays through to the end — used to record the
+    /// user's daily practice streak.
+    var onFinish: (() -> Void)?
+
     private var session: SessionModel?
     private var narrationPlayer: AVAudioPlayer?
     private var ambientPlayer: AVAudioPlayer?
@@ -241,6 +245,7 @@ final class SessionPlayer: NSObject {
         currentLine = "Rest here as long as you like."
         playChime()
         fadeAmbient(to: 0)
+        onFinish?()
         Task { [weak self] in
             try? await Task.sleep(for: .seconds(6))
             self?.ambientPlayer?.stop()

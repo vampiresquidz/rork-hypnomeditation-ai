@@ -10,6 +10,8 @@ import SwiftUI
 
 struct PlayerView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(StreakStore.self) private var streaks
+    @Environment(ReminderManager.self) private var reminders
 
     let session: SessionModel
 
@@ -17,6 +19,7 @@ struct PlayerView: View {
     @State private var showCountdown = true
     @State private var countdown = 3
     @State private var appeared = false
+    @State private var celebration: Int?
 
     var body: some View {
         ZStack {
@@ -52,9 +55,16 @@ struct PlayerView: View {
             if showCountdown {
                 countdownOverlay
             }
+
+            if let streak = celebration {
+                StreakCelebrationOverlay(streak: streak) {
+                    withAnimation(.easeInOut) { celebration = nil }
+                }
+            }
         }
         .preferredColorScheme(.dark)
         .onAppear {
+            player.onFinish = recordPractice
             player.load(session)
             startCountdown()
         }
@@ -65,6 +75,21 @@ struct PlayerView: View {
             let g = UIImpactFeedbackGenerator(style: .soft)
             g.impactOccurred()
         }
+    }
+
+    // MARK: Streak
+
+    /// Called when the session plays through to the end: check in for today and,
+    /// if this lands on a milestone, celebrate in-app and queue a proud push for
+    /// tomorrow so the user is nudged to keep the streak alive.
+    private func recordPractice() {
+        let milestone = streaks.recordPractice()
+        UINotificationFeedbackGenerator().notificationOccurred(.success)
+        guard let milestone else { return }
+        withAnimation(.spring(response: 0.5, dampingFraction: 0.7)) {
+            celebration = milestone
+        }
+        Task { await reminders.celebrate(streak: milestone) }
     }
 
     // MARK: Pieces
@@ -351,6 +376,59 @@ private struct PhaseScrubber: View {
                     .fill(colorFor(span.phase).opacity(opacity))
                     .frame(width: max(2, w * (span.end - span.start) - gap), height: trackHeight)
                     .offset(x: w * span.start)
+            }
+        }
+    }
+}
+
+/// A celebratory takeover shown when the user reaches a practice-streak milestone
+/// — Professor Jelly cheering over a dimmed backdrop. Taps through, and auto-
+/// dismisses after a few seconds so it never blocks the wind-down.
+private struct StreakCelebrationOverlay: View {
+    let streak: Int
+    let onDismiss: () -> Void
+
+    @State private var shown = false
+
+    var body: some View {
+        ZStack {
+            Color.black.opacity(0.55)
+                .ignoresSafeArea()
+                .onTapGesture(perform: onDismiss)
+
+            VStack(spacing: 18) {
+                MascotView(pose: .celebrate, size: 170)
+                    .scaleEffect(shown ? 1 : 0.6)
+
+                Text("\(streak)-day streak!")
+                    .font(.system(size: 34, weight: .heavy, design: .rounded))
+                    .foregroundStyle(Theme.amber)
+
+                Text("Professor Jelly is so proud of you 🪼\nSee you again tomorrow?")
+                    .font(.system(.headline, design: .rounded).weight(.regular))
+                    .foregroundStyle(Theme.textPrimary)
+                    .multilineTextAlignment(.center)
+
+                Button(action: onDismiss) {
+                    Text("Keep it going")
+                        .font(.headline)
+                        .foregroundStyle(Theme.void)
+                        .padding(.horizontal, 30)
+                        .padding(.vertical, 14)
+                        .background(Theme.gradientAmberTeal, in: Capsule())
+                }
+                .buttonStyle(.plain)
+                .padding(.top, 4)
+            }
+            .padding(36)
+            .opacity(shown ? 1 : 0)
+        }
+        .onAppear {
+            withAnimation(.spring(response: 0.5, dampingFraction: 0.6)) { shown = true }
+            // Auto-dismiss so it doesn't interrupt the calm for long.
+            Task {
+                try? await Task.sleep(for: .seconds(6))
+                onDismiss()
             }
         }
     }

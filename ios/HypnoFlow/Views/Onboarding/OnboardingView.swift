@@ -297,4 +297,5 @@ struct SelectableCard: View {
         .environment(SubscriptionManager())
         .environment(CreditStore())
         .environment(AuthStore())
+        .environment(ReminderManager())
 }

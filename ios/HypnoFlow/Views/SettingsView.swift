@@ -14,11 +14,14 @@ struct SettingsView: View {
     @Environment(AuthStore.self) private var auth
     @Environment(SubscriptionManager.self) private var subs
     @Environment(CreditStore.self) private var credits
+    @Environment(ReminderManager.self) private var reminders
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openURL) private var openURL
 
     @State private var confirmSignOut = false
     @State private var showPaywall = false
+    @State private var reminderTime = Date()
+    @State private var reminderOn = false
 
     // Legal / support endpoints.
     private let privacyURL = URL(string: "https://hypnoflow.dev/privacy.html")!
@@ -183,13 +186,73 @@ struct SettingsView: View {
 
     private var notificationsSection: some View {
         section("Notifications") {
-            actionRow(symbol: "bell.fill", tint: Theme.violet,
-                      title: "Reminders",
-                      subtitle: "Manage daily nudges in iOS Settings") {
-                if let url = URL(string: UIApplication.openSettingsURLString) {
-                    openURL(url)
+            VStack(spacing: 12) {
+                // The daily reminder toggle + time picker.
+                VStack(spacing: 14) {
+                    HStack(spacing: 14) {
+                        ZStack {
+                            Circle().fill(Theme.violet.opacity(0.16)).frame(width: 42, height: 42)
+                            Image(systemName: "bell.fill").foregroundStyle(Theme.violet)
+                        }
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Daily reminder")
+                                .font(.system(.subheadline, design: .rounded).weight(.semibold))
+                                .foregroundStyle(Theme.textPrimary)
+                            Text("A gentle nudge from Professor Jelly")
+                                .font(.caption)
+                                .foregroundStyle(Theme.textSecondary)
+                        }
+                        Spacer(minLength: 0)
+                        Toggle("", isOn: $reminderOn)
+                            .labelsHidden()
+                            .tint(Theme.teal)
+                    }
+
+                    if reminderOn {
+                        Divider().overlay(Theme.textFaint.opacity(0.2))
+                        HStack {
+                            Text("Time")
+                                .font(.subheadline)
+                                .foregroundStyle(Theme.textSecondary)
+                            Spacer(minLength: 0)
+                            DatePicker("", selection: $reminderTime, displayedComponents: .hourAndMinute)
+                                .labelsHidden()
+                        }
+                    }
+                }
+                .padding(16)
+                .glassCard(cornerRadius: 18)
+
+                if reminderOn && reminders.authorization == .denied {
+                    actionRow(symbol: "exclamationmark.triangle.fill", tint: Theme.amber,
+                              title: "Notifications are off",
+                              subtitle: "Turn them on in iOS Settings to get reminders") {
+                        if let url = URL(string: UIApplication.openSettingsURLString) {
+                            openURL(url)
+                        }
+                    }
                 }
             }
+        }
+        .task {
+            await reminders.refreshAuthorization()
+            reminderOn = reminders.isEnabled
+            reminderTime = reminders.timeOfDay
+        }
+        .onChange(of: reminderOn) { _, on in
+            Task {
+                if on {
+                    let ok = await reminders.enable(at: reminderTime)
+                    // If permission was denied the manager can't turn on — reflect that.
+                    if !ok { reminderOn = false }
+                } else {
+                    reminders.disable()
+                }
+            }
+        }
+        .onChange(of: reminderTime) { _, newTime in
+            guard reminderOn else { return }
+            Task { await reminders.updateTime(newTime) }
         }
     }
 

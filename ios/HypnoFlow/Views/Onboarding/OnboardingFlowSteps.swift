@@ -394,6 +394,7 @@ struct NotificationsStep: View {
     var unwind: UnwindTime?
     var onDecision: () -> Void
 
+    @Environment(ReminderManager.self) private var reminders
     @State private var requesting = false
 
     var body: some View {
@@ -427,11 +428,13 @@ struct NotificationsStep: View {
 
     private func requestPermission() {
         requesting = true
-        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { _, _ in
-            DispatchQueue.main.async {
-                requesting = false
-                onDecision()
-            }
+        Task {
+            // Suggest the reminder time from the user's unwind answer, then ask
+            // for permission and schedule Professor Jelly's daily nudge.
+            reminders.adoptSuggestedTime(unwind)
+            _ = await reminders.enable()
+            requesting = false
+            onDecision()
         }
     }
 }

@@ -76,4 +76,6 @@ private struct LibraryTab: View {
         .environment(CreditStore())
         .environment(onboarding)
         .environment(AuthStore())
+        .environment(ReminderManager())
+        .environment(StreakStore())
 }

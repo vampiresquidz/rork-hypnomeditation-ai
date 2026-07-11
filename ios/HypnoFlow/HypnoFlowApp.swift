@@ -17,6 +17,8 @@ struct HypnoFlowApp: App {
     @State private var credits = CreditStore()
     @State private var onboarding = OnboardingStore()
     @State private var auth = AuthStore()
+    @State private var reminders = ReminderManager()
+    @State private var streaks = StreakStore()
 
     init() {
         let container = Self.makeContainer()
@@ -34,6 +36,8 @@ struct HypnoFlowApp: App {
                 .environment(credits)
                 .environment(onboarding)
                 .environment(auth)
+                .environment(reminders)
+                .environment(streaks)
                 .task {
                     // Grant onboarding/monthly credits, then keep them in sync
                     // as the subscription entitlement changes.
@@ -59,6 +63,11 @@ struct HypnoFlowApp: App {
                     if let userID = auth.userID {
                         await subscriptions.identify(userID)
                     }
+
+                    // Adopt the reminder time the user hinted at during onboarding,
+                    // then keep the rolling two-week reminder window fresh.
+                    reminders.adoptSuggestedTime(onboarding.unwindTime)
+                    await reminders.refreshScheduleIfNeeded()
                 }
         }
         .modelContainer(container)

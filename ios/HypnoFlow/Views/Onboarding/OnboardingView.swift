@@ -26,7 +26,7 @@ struct OnboardingView: View {
     @State private var showLogin = false
 
     enum Step: Int, CaseIterable {
-        case welcome, social, goal, mind, experience, unwind, building, plan, notifications, offer
+        case welcome, social, goal, mind, experience, unwind, building, plan, progress, notifications, timeline, offer
 
         /// Question steps that drive the top progress bar.
         static let questionSteps: [Step] = [.goal, .mind, .experience, .unwind]
@@ -129,11 +129,17 @@ struct OnboardingView: View {
                 onContinue: advance
             )
 
+        case .progress:
+            ProgressChartStep(goal: onboarding.goal, onContinue: advance)
+
         case .notifications:
             NotificationsStep(
                 unwind: onboarding.unwindTime,
                 onDecision: { advance() }
             )
+
+        case .timeline:
+            TrialTimelineStep(goal: onboarding.goal, onContinue: advance)
 
         case .offer:
             OfferStep(

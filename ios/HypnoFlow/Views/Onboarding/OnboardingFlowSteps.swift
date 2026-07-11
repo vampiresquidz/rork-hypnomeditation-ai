@@ -490,3 +490,264 @@ private struct BenefitRow: View {
         .glassCard(cornerRadius: 14)
     }
 }
+
+// MARK: - Projected progress chart
+//
+// The "growth curve" onboarding pattern: show the user a believable upward
+// trajectory of the thing they came for, versus staying flat on their own. It
+// makes the payoff concrete right before the ask.
+
+struct ProgressChartStep: View {
+    var goal: HypnosisGoal?
+    var onContinue: () -> Void
+
+    @State private var draw = false
+
+    var body: some View {
+        OnboardingScaffold(
+            mascot: .idle,
+            mascotSize: 86,
+            title: "Where HypnoFlow takes you",
+            subtitle: "Most people feel a real shift within their first week of daily sessions."
+        ) {
+            VStack(spacing: 12) {
+                ProgressChartCard(metric: metric, draw: draw)
+                Text("Based on members who do a session most days.")
+                    .font(.caption2)
+                    .foregroundStyle(Theme.textFaint)
+                    .frame(maxWidth: .infinity, alignment: .center)
+            }
+            .padding(.top, 6)
+        } footer: {
+            PrimaryButton(title: "I'm in — continue", systemImage: "chart.line.uptrend.xyaxis", action: onContinue)
+        }
+        .onAppear {
+            withAnimation(.easeInOut(duration: 1.2)) { draw = true }
+        }
+    }
+
+    private var metric: String {
+        switch goal {
+        case .sleep:      "Sleep quality"
+        case .confidence: "Confidence"
+        case .anxiety:    "Calm"
+        case .focus:      "Focus"
+        case .habit:      "Self-control"
+        case .calm:       "Calm"
+        case .none:       "How you feel"
+        }
+    }
+}
+
+private struct ProgressChartCard: View {
+    var metric: String
+    var draw: Bool
+
+    private let weeks = ["Week 1", "Week 2", "Week 3", "Week 4"]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(metric.uppercased())
+                .font(.caption2.weight(.semibold))
+                .tracking(1.4)
+                .foregroundStyle(Theme.textFaint)
+
+            GeometryReader { geo in
+                let w = geo.size.width
+                let h = geo.size.height
+                ZStack {
+                    // Faint horizontal gridlines
+                    ForEach(0..<4, id: \.self) { i in
+                        Rectangle()
+                            .fill(Theme.cardStroke)
+                            .frame(height: 1)
+                            .position(x: w / 2, y: h * CGFloat(i) / 3)
+                    }
+
+                    // Area under the "with HypnoFlow" curve
+                    RisingArea()
+                        .fill(LinearGradient(
+                            colors: [Theme.amber.opacity(0.28), Theme.teal.opacity(0.02)],
+                            startPoint: .top, endPoint: .bottom))
+                        .opacity(draw ? 1 : 0)
+
+                    // "On your own" — flat, faint, dashed
+                    FlatLine()
+                        .trim(from: 0, to: draw ? 1 : 0)
+                        .stroke(Theme.textFaint.opacity(0.6),
+                                style: StrokeStyle(lineWidth: 2, lineCap: .round, dash: [5, 5]))
+
+                    // "With HypnoFlow" — rising gradient line
+                    RisingCurve()
+                        .trim(from: 0, to: draw ? 1 : 0)
+                        .stroke(Theme.gradientAmberTeal,
+                                style: StrokeStyle(lineWidth: 3, lineCap: .round))
+
+                    // Endpoint marker
+                    Circle()
+                        .fill(Theme.amber)
+                        .frame(width: 12, height: 12)
+                        .shadow(color: Theme.amber.opacity(0.7), radius: 6)
+                        .position(x: w - 4, y: h * 0.14)
+                        .opacity(draw ? 1 : 0)
+
+                    chip("With HypnoFlow", tint: Theme.amber)
+                        .position(x: w * 0.36, y: h * 0.16)
+                        .opacity(draw ? 1 : 0)
+
+                    chip("On your own", tint: Theme.textFaint)
+                        .position(x: w * 0.74, y: h * 0.82)
+                        .opacity(draw ? 1 : 0)
+                }
+            }
+            .frame(height: 180)
+
+            HStack {
+                ForEach(weeks, id: \.self) { label in
+                    Text(label)
+                        .font(.caption2)
+                        .foregroundStyle(Theme.textFaint)
+                        .frame(maxWidth: .infinity)
+                }
+            }
+        }
+        .padding(16)
+        .glassCard(cornerRadius: 20)
+    }
+
+    private func chip(_ text: String, tint: Color) -> some View {
+        Text(text)
+            .font(.caption2.weight(.semibold))
+            .foregroundStyle(tint)
+            .padding(.horizontal, 8).padding(.vertical, 4)
+            .background(Theme.void.opacity(0.55), in: Capsule())
+            .animation(.easeIn(duration: 0.4).delay(0.7), value: text)
+    }
+}
+
+/// A smooth curve that starts low-left and climbs to the top-right.
+private struct RisingCurve: Shape {
+    func path(in rect: CGRect) -> Path {
+        var p = Path()
+        let w = rect.width, h = rect.height
+        p.move(to: CGPoint(x: 0, y: h * 0.82))
+        p.addCurve(
+            to: CGPoint(x: w, y: h * 0.14),
+            control1: CGPoint(x: w * 0.34, y: h * 0.80),
+            control2: CGPoint(x: w * 0.55, y: h * 0.30))
+        return p
+    }
+}
+
+/// The same rising curve, closed down to the baseline for an area fill.
+private struct RisingArea: Shape {
+    func path(in rect: CGRect) -> Path {
+        var p = Path()
+        let w = rect.width, h = rect.height
+        p.move(to: CGPoint(x: 0, y: h * 0.82))
+        p.addCurve(
+            to: CGPoint(x: w, y: h * 0.14),
+            control1: CGPoint(x: w * 0.34, y: h * 0.80),
+            control2: CGPoint(x: w * 0.55, y: h * 0.30))
+        p.addLine(to: CGPoint(x: w, y: h))
+        p.addLine(to: CGPoint(x: 0, y: h))
+        p.closeSubpath()
+        return p
+    }
+}
+
+/// A nearly-flat, slightly declining line — the "do nothing" baseline.
+private struct FlatLine: Shape {
+    func path(in rect: CGRect) -> Path {
+        var p = Path()
+        p.move(to: CGPoint(x: 0, y: rect.height * 0.66))
+        p.addLine(to: CGPoint(x: rect.width, y: rect.height * 0.72))
+        return p
+    }
+}
+
+// MARK: - Trial timeline
+//
+// The "how your free trial works" pattern: a clear Today → reminder → billed
+// timeline removes trial anxiety right before the paywall, and is the
+// App-Store-safe alternative to confusing free-trial toggles.
+
+struct TrialTimelineStep: View {
+    var goal: HypnosisGoal?
+    var onContinue: () -> Void
+
+    var body: some View {
+        OnboardingScaffold(
+            mascot: .wave,
+            mascotSize: 120,
+            title: "Try HypnoFlow free",
+            subtitle: "No surprises — here's exactly how your 7-day free trial works."
+        ) {
+            VStack(alignment: .leading, spacing: 0) {
+                TimelineRow(
+                    symbol: "lock.open.fill", tint: Theme.teal,
+                    day: "Today",
+                    detail: goal.map { "Unlock everything and start your first \($0.title) session." }
+                        ?? "Unlock unlimited sessions, every voice and soundscape.")
+                TimelineRow(
+                    symbol: "bell.fill", tint: Theme.violet,
+                    day: "Day 5",
+                    detail: "We'll send a friendly reminder that your trial is ending.")
+                TimelineRow(
+                    symbol: "checkmark.seal.fill", tint: Theme.amber,
+                    day: "Day 7",
+                    detail: "Your plan begins — only if you love it. Cancel anytime before.",
+                    isLast: true)
+            }
+            .padding(18)
+            .glassCard(cornerRadius: 20)
+            .padding(.top, 4)
+        } footer: {
+            VStack(spacing: 8) {
+                PrimaryButton(title: "See my plan", systemImage: "sparkles", action: onContinue)
+                Text("Cancel anytime in Settings · No charge until day 7")
+                    .font(.caption2)
+                    .foregroundStyle(Theme.textFaint)
+            }
+        }
+    }
+}
+
+private struct TimelineRow: View {
+    var symbol: String
+    var tint: Color
+    var day: String
+    var detail: String
+    var isLast: Bool = false
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 14) {
+            VStack(spacing: 6) {
+                ZStack {
+                    Circle().fill(tint.opacity(0.18)).frame(width: 44, height: 44)
+                    Image(systemName: symbol).foregroundStyle(tint)
+                }
+                if !isLast {
+                    Capsule()
+                        .fill(Theme.cardStroke)
+                        .frame(width: 2)
+                        .frame(maxHeight: .infinity)
+                }
+            }
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(day)
+                    .font(.system(.headline, design: .rounded))
+                    .foregroundStyle(Theme.textPrimary)
+                Text(detail)
+                    .font(.subheadline)
+                    .foregroundStyle(Theme.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(.bottom, isLast ? 0 : 20)
+
+            Spacer(minLength: 0)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}

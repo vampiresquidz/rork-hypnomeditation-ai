@@ -9,6 +9,7 @@
 
 import SwiftUI
 import UIKit
+import RevenueCatUI
 
 struct SettingsView: View {
     @Environment(AuthStore.self) private var auth
@@ -20,6 +21,7 @@ struct SettingsView: View {
 
     @State private var confirmSignOut = false
     @State private var showPaywall = false
+    @State private var showCustomerCenter = false
     @State private var reminderTime = Date()
     @State private var reminderOn = false
 
@@ -59,6 +61,12 @@ struct SettingsView: View {
             }
             .toolbarBackground(.hidden, for: .navigationBar)
             .sheet(isPresented: $showPaywall) { PaywallView() }
+            .sheet(isPresented: $showCustomerCenter) {
+                // RevenueCat's self-service hub: cancel, change plan, restore,
+                // request refunds, and reach support — all handled natively.
+                CustomerCenterView()
+                    .onDisappear { Task { await subs.refresh() } }
+            }
             .confirmationDialog("Sign out of HypnoFlow?", isPresented: $confirmSignOut, titleVisibility: .visible) {
                 Button("Sign out", role: .destructive) { auth.signOut() }
                 Button("Cancel", role: .cancel) {}
@@ -144,13 +152,8 @@ struct SettingsView: View {
                 } else {
                     actionRow(symbol: "creditcard", tint: Theme.teal,
                               title: "Manage subscription",
-                              subtitle: "Change plan or cancel anytime") {
-                        Task {
-                            let shown = await subs.openManageSubscriptions()
-                            if !shown, let url = URL(string: "https://apps.apple.com/account/subscriptions") {
-                                openURL(url)
-                            }
-                        }
+                              subtitle: "Change plan, cancel, or get help") {
+                        showCustomerCenter = true
                     }
                 }
 

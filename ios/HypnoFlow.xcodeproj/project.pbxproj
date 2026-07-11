@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		AB10000000000000000000C3 /* RevenueCat in Frameworks */ = {isa = PBXBuildFile; productRef = AB10000000000000000000C2 /* RevenueCat */; };
+		AB10000000000000000000C5 /* RevenueCatUI in Frameworks */ = {isa = PBXBuildFile; productRef = AB10000000000000000000C4 /* RevenueCatUI */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -57,6 +58,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				AB10000000000000000000C3 /* RevenueCat in Frameworks */,
+				AB10000000000000000000C5 /* RevenueCatUI in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -118,6 +120,7 @@
 			name = HypnoFlow;
 			packageProductDependencies = (
 				AB10000000000000000000C2 /* RevenueCat */,
+				AB10000000000000000000C4 /* RevenueCatUI */,
 			);
 			productName = HypnoFlow;
 			productReference = 105FC57A2E9EAD3100EA8BCF /* HypnoFlow.app */;
@@ -606,6 +609,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = AB10000000000000000000C1 /* XCRemoteSwiftPackageReference "purchases-ios" */;
 			productName = RevenueCat;
+		};
+		AB10000000000000000000C4 /* RevenueCatUI */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = AB10000000000000000000C1 /* XCRemoteSwiftPackageReference "purchases-ios" */;
+			productName = RevenueCatUI;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

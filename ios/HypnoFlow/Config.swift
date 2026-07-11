@@ -15,9 +15,14 @@ enum Config {
     /// proxy below instead.
     static let ELEVENLABS_API_KEY = "07dce7c4b9ca116a9702855da571d3c1a010a7458e5cda8655418aa46a28d9c1"
 
-    /// RevenueCat public SDK key (starts with "appl_"). Leave "" to disable
-    /// in-app purchases entirely (the app then runs without paywalls).
-    static let REVENUECAT_API_KEY = ""
+    /// RevenueCat public SDK key. Leave "" to disable in-app purchases entirely
+    /// (the app then runs without paywalls).
+    ///
+    /// This is the HypnoFlow project's **Test Store** key (starts with "test_"),
+    /// so purchases run against RevenueCat's sandbox test store — no App Store
+    /// Connect needed to try the full plus/pro + credits flow. When the real App
+    /// Store app is linked in RevenueCat, swap this for that app's "appl_" key.
+    static let REVENUECAT_API_KEY = "test_bAKwjTsbcJzNVTclJPqIBApzDdk"
 
     /// Rork AI proxy base URL (used for script generation, and for narration
     /// when ELEVENLABS_API_KEY is empty).

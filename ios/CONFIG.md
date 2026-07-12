@@ -9,14 +9,19 @@ Create `ios/HypnoFlow/Config.swift` with:
 import Foundation
 
 enum Config {
+    // Your own OpenAI API key — scripts are written by calling OpenAI directly
+    // when set. Empty = fall back to the Rork proxy.
+    static let OPENAI_API_KEY = "sk-proj-your_openai_key_here"
+    static let OPENAI_MODEL = "gpt-4o"
+
     // Your own ElevenLabs API key — narration calls ElevenLabs directly when set.
     static let ELEVENLABS_API_KEY = "sk_your_elevenlabs_key_here"
 
     // RevenueCat public SDK key (starts with "appl_"). Empty = IAP disabled.
     static let REVENUECAT_API_KEY = "appl_your_revenuecat_key"
 
-    // Rork AI proxy — used for AI script generation (and for narration only if
-    // ELEVENLABS_API_KEY is left empty).
+    // Rork AI proxy — the fallback for script generation and narration when the
+    // direct keys above are left empty.
     static let EXPO_PUBLIC_TOOLKIT_URL = "https://your-rork-toolkit-url"
     static let EXPO_PUBLIC_RORK_TOOLKIT_SECRET_KEY = "your_rork_secret"
 }
@@ -68,9 +73,13 @@ Payments use [RevenueCat](https://www.revenuecat.com). To make the paywall work:
 
 ## Script generation
 
-The hypnosis **script** (the words) is still written by the LLM through the Rork
-proxy, so `EXPO_PUBLIC_TOOLKIT_URL` / `EXPO_PUBLIC_RORK_TOOLKIT_SECRET_KEY` are
-still required even when using a direct ElevenLabs key.
+- **`OPENAI_API_KEY` set** → `HypnosisScriptService` POSTs directly to
+  `https://api.openai.com/v1/chat/completions` using `OPENAI_MODEL`. Recommended.
+- **`OPENAI_API_KEY` empty** → falls back to the Rork proxy
+  (`EXPO_PUBLIC_TOOLKIT_URL` + bearer secret), which requires both values to be set.
+
+Either way the model must return the same JSON (`{title, segments[]}`); markdown
+code fences around it are tolerated.
 
 ## Get an ElevenLabs key
 

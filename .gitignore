@@ -2,3 +2,10 @@ node_modules
 .env
 .expo
 .rork
+
+# Secrets — never commit these
+ios/.env.swift
+ios/HypnoFlow/Config.swift
+
+# Local build artifacts
+ios/build-device/

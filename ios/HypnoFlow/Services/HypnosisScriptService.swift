@@ -3,7 +3,8 @@
 //  HypnoFlow
 //
 //  Generates a personalized hypnosis / meditation script by asking a
-//  language model (via the Rork AI proxy) to return structured segments.
+//  language model to return structured segments. Talks to OpenAI directly when
+//  an API key is set, and falls back to the Rork AI proxy otherwise.
 //
 
 import Foundation
@@ -41,10 +42,26 @@ private struct RawScript: Codable {
 }
 
 struct HypnosisScriptService {
-    private let model = "anthropic/claude-sonnet-4"
+    private let proxyModel = "anthropic/claude-sonnet-4"
 
+    private var openAIKey: String {
+        Config.OPENAI_API_KEY.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
     private var baseURL: String { Config.EXPO_PUBLIC_TOOLKIT_URL }
     private var secret: String { Config.EXPO_PUBLIC_RORK_TOOLKIT_SECRET_KEY }
+
+    /// OpenAI and the Rork proxy speak the same chat-completions request and
+    /// response shape, so the only thing that varies is where we send it, which
+    /// token authorizes it, and which model name to ask for.
+    private func endpoint() throws -> (url: URL, token: String, model: String) {
+        if !openAIKey.isEmpty {
+            return (URL(string: "https://api.openai.com/v1/chat/completions")!,
+                    openAIKey,
+                    Config.OPENAI_MODEL)
+        }
+        guard !baseURL.isEmpty, !secret.isEmpty else { throw ScriptError.notConfigured }
+        return (URL(string: "\(baseURL)/v2/vercel/v1/chat/completions")!, secret, proxyModel)
+    }
 
     /// Produces a complete, structured hypnosis script for the given request.
     func generate(
@@ -52,9 +69,7 @@ struct HypnosisScriptService {
         intention: String,
         durationMinutes: Int
     ) async throws -> (title: String, segments: [ScriptSegment]) {
-        guard !baseURL.isEmpty, !secret.isEmpty else { throw ScriptError.notConfigured }
-
-        let url = URL(string: "\(baseURL)/v2/vercel/v1/chat/completions")!
+        let (url, token, model) = try endpoint()
 
         let system = Self.systemPrompt(durationMinutes: durationMinutes, isSleep: goal == .sleep)
         let user = Self.userPrompt(goal: goal, intention: intention, durationMinutes: durationMinutes)
@@ -72,7 +87,7 @@ struct HypnosisScriptService {
         request.httpMethod = "POST"
         request.timeoutInterval = 90
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.setValue("Bearer \(secret)", forHTTPHeaderField: "Authorization")
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
 
         let (data, response) = try await URLSession.shared.data(for: request)

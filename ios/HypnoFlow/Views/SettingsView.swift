@@ -41,11 +41,6 @@ struct SettingsView: View {
                         subscriptionSection
                         notificationsSection
                         supportSection
-
-                        if auth.isSignedIn {
-                            signOutButton
-                        }
-
                         footer
                     }
                     .padding(20)
@@ -67,8 +62,8 @@ struct SettingsView: View {
                 CustomerCenterView()
                     .onDisappear { Task { await subs.refresh() } }
             }
-            .confirmationDialog("Sign out of HypnoFlow?", isPresented: $confirmSignOut, titleVisibility: .visible) {
-                Button("Sign out", role: .destructive) { auth.signOut() }
+            .confirmationDialog("Log out of HypnoFlow?", isPresented: $confirmSignOut, titleVisibility: .visible) {
+                Button("Log out", role: .destructive) { logOut() }
                 Button("Cancel", role: .cancel) {}
             } message: {
                 Text("Your sessions stay on this device and in iCloud. You can sign back in anytime.")
@@ -83,7 +78,15 @@ struct SettingsView: View {
     private var accountSection: some View {
         section("Account") {
             if auth.isSignedIn {
-                identityCard
+                VStack(spacing: 12) {
+                    identityCard
+                    actionRow(symbol: "rectangle.portrait.and.arrow.right",
+                              tint: Theme.amber,
+                              title: "Log out",
+                              subtitle: "Sign out of this account on this device") {
+                        confirmSignOut = true
+                    }
+                }
             } else {
                 VStack(spacing: 12) {
                     VStack(spacing: 6) {
@@ -281,18 +284,12 @@ struct SettingsView: View {
         }
     }
 
-    private var signOutButton: some View {
-        Button(role: .destructive) {
-            confirmSignOut = true
-        } label: {
-            Text("Sign out")
-                .font(.headline)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 15)
-                .glassCard(cornerRadius: 16)
-        }
-        .buttonStyle(.plain)
-        .foregroundStyle(Theme.amber)
+    /// Signs the user out of their Apple account and resets RevenueCat identity
+    /// back to an anonymous user (via AuthStore.onSignOut, wired in HypnoFlowApp).
+    /// The Account section reacts immediately, flipping back to the sign-in card.
+    private func logOut() {
+        auth.signOut()
+        UINotificationFeedbackGenerator().notificationOccurred(.success)
     }
 
     private var footer: some View {
